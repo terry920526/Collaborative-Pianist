@@ -37,36 +37,137 @@ ACTIONS.labels=function(b){var on=$(".kb").classList.toggle("labels");b.setAttri
 /* ---------- piano keyboard ---------- */
 var NOTES=[0,2,4,5,7,9,11],BLACK_AFTER={0:1,1:3,3:6,4:8,5:10};
 var NAMES=["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
-var WHITES=15,keyEls={},ctx=null,npT,dragging=false,lastKey=null;
+var WHITES=15,keyEls={},ctx=null,npT,dragging=false,lastKey=null,keyObserver=null;
 function freq(semi){return 261.63*Math.pow(2,semi/12)}
 function noteName(semi){return NAMES[semi%12]+(4+Math.floor(semi/12))}
 function mountKeys(){
-  var kb=$("#kb");if(!kb)return;keyEls={};
-  for(var i=0;i<WHITES;i++){
-    var sm=Math.floor(i/7)*12+NOTES[i%7],b=document.createElement("button");
-    b.className="wk";b.type="button";b.setAttribute("aria-label","Play "+noteName(sm));b.dataset.semi=sm;
-    b.innerHTML='<span class="lbl" aria-hidden="true">'+noteName(sm)+'</span>';kb.appendChild(b);keyEls[sm]=b;
+  var kb = $("#kb");
+  if (!kb) return;
+
+  // Disconnect the previous resize observer, if one exists.
+  if (keyObserver) {
+    keyObserver.disconnect();
   }
-  for(var j=0;j<WHITES-1;j++){
-    var o=j%7;
-    if(BLACK_AFTER.hasOwnProperty(o)){
-      var s2=Math.floor(j/7)*12+BLACK_AFTER[o],bk=document.createElement("button");
-      bk.className="bk";bk.type="button";bk.setAttribute("aria-label","Play "+noteName(s2));bk.dataset.semi=s2;
-      bk.innerHTML='<span class="lbl" aria-hidden="true">'+NAMES[s2%12].replace("♯","#")+'</span>';
-      bk.style.left=((j+1)/WHITES*100)+"%";kb.appendChild(bk);keyEls[s2]=bk;
+
+  var currentCount = 0;
+  keyEls = {};
+
+  // Rebuild the keyboard according to its available width.
+  function drawKeys(){
+    var width = kb.clientWidth;
+
+    if (!width) return;
+
+    // Aim for white keys approximately 34px wide.
+    // Always show at least two octaves.
+    var nextCount = Math.max(14, Math.floor(width / 34));
+
+    // Avoid rebuilding the keyboard unless its key count changes.
+    if (nextCount === currentCount) return;
+
+    currentCount = nextCount;
+    WHITES = nextCount;
+    keyEls = {};
+    kb.innerHTML = "";
+
+    var whiteWidth = 100 / WHITES;
+
+    // Create the white keys.
+    for (var i = 0; i < WHITES; i++){
+      var sm = Math.floor(i / 7) * 12 + NOTES[i % 7];
+      var b = document.createElement("button");
+
+      b.className = "wk";
+      b.type = "button";
+      b.setAttribute("aria-label", "Play " + noteName(sm));
+      b.dataset.semi = sm;
+
+      b.innerHTML =
+        '<span class="lbl" aria-hidden="true">' +
+        noteName(sm) +
+        '</span>';
+
+      kb.appendChild(b);
+      keyEls[sm] = b;
+    }
+
+    // Create the black keys in their correct positions.
+    for (var j = 0; j < WHITES - 1; j++){
+      var o = j % 7;
+
+      if (BLACK_AFTER.hasOwnProperty(o)){
+        var s2 = Math.floor(j / 7) * 12 + BLACK_AFTER[o];
+        var bk = document.createElement("button");
+
+        bk.className = "bk";
+        bk.type = "button";
+        bk.setAttribute("aria-label", "Play " + noteName(s2));
+        bk.dataset.semi = s2;
+
+        bk.innerHTML =
+          '<span class="lbl" aria-hidden="true">' +
+          NAMES[s2 % 12].replace("♯", "#") +
+          '</span>';
+
+        // Black keys should be narrower than white keys.
+        bk.style.left = ((j + 1) * whiteWidth) + "%";
+        bk.style.width = (whiteWidth * 0.62) + "%";
+        bk.style.marginLeft = (-whiteWidth * 0.31) + "%";
+
+        kb.appendChild(bk);
+        keyEls[s2] = bk;
+      }
     }
   }
-  kb.addEventListener("pointerdown",function(e){
-    var k=e.target.closest("[data-semi]");if(!k)return;
-    e.preventDefault();dragging=true;lastKey=k;try{k.releasePointerCapture(e.pointerId)}catch(x){}
+
+  // Draw the keyboard immediately.
+  drawKeys();
+
+  // Automatically adjust the number of keys when the
+  // keyboard container changes size.
+  if (window.ResizeObserver) {
+    keyObserver = new ResizeObserver(drawKeys);
+    keyObserver.observe(kb);
+  } else {
+    window.addEventListener("resize", drawKeys);
+  }
+
+  // Play a key when the visitor clicks or touches it.
+  kb.addEventListener("pointerdown", function(e){
+    var k = e.target.closest("[data-semi]");
+    if (!k) return;
+
+    e.preventDefault();
+    dragging = true;
+    lastKey = k;
+
+    try {
+      k.releasePointerCapture(e.pointerId);
+    } catch(x) {}
+
     play(+k.dataset.semi);
   });
-  kb.addEventListener("pointermove",function(e){
-    if(!dragging)return;
-    var el=document.elementFromPoint(e.clientX,e.clientY),k=el&&el.closest?el.closest("[data-semi]"):null;
-    if(k&&k!==lastKey&&kb.contains(k)){lastKey=k;play(+k.dataset.semi)}
+
+  // Allow visitors to play notes by dragging across keys.
+  kb.addEventListener("pointermove", function(e){
+    if (!dragging) return;
+
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    var k = el && el.closest ? el.closest("[data-semi]") : null;
+
+    if (k && k !== lastKey && kb.contains(k)){
+      lastKey = k;
+      play(+k.dataset.semi);
+    }
   });
-  kb.addEventListener("click",function(e){if(e.detail!==0)return;var k=e.target.closest("[data-semi]");if(k)play(+k.dataset.semi)});
+
+  // Support keyboard activation for accessibility.
+  kb.addEventListener("click", function(e){
+    if (e.detail !== 0) return;
+
+    var k = e.target.closest("[data-semi]");
+    if (k) play(+k.dataset.semi);
+  });
 }
 function readout(semi){
   var np=$("#np");if(!np)return;np.textContent=noteName(semi);np.classList.add("on");
