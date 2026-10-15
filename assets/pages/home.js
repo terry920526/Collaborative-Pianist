@@ -4,7 +4,7 @@ function viewHome(){
   var html=
   '<div class="hero"><div class="wrap">'+
     '<h1>Find a collaborative pianist who can <em>play with you.</em></h1>'+
-    '<p class="lead">Search collaborative pianists near you, compare rates and experience, and request a booking in minutes. Built for conservatory students, teachers, professionals and serious amateurs.</p>'+
+    '<p class="lead">Search collaborative pianists near you, compare rates and experience, and request a booking in minutes. Built for conservatory students, teachers, and professionals.</p>'+
     '<div class="hero-cta"><a class="btn primary lg" href="find.html">Find an Accompanist</a><a class="btn lg" href="become-accompanist.html">Become an Accompanist</a></div>'+
     '<form class="search s4" data-form="heroSearch" role="search">'+
       '<label><span>City or ZIP code</span><input name="loc" type="text" placeholder="e.g. Los Angeles or 90001" autocomplete="off"></label>'+
