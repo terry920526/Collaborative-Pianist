@@ -170,14 +170,122 @@ function estimate(p,service,duration,locType){
   return {rate:rate,subtotal:sub,travel:travel,total:total,commission:total*COMMISSION,net:total*(1-COMMISSION)};
 }
 
-/* ---------- accounts ---------- */
-function userById(id){for(var i=0;i<DB.users.length;i++)if(DB.users[i].id===id)return DB.users[i];return null}
-function me(){var u=userById(DB.session);return u&&!u.suspended?u:null}
-function isAdmin(){var u=me();return !!u&&u.role==="admin"}
-function myProfile(){var u=me();if(!u)return null;return DB.custom.filter(function(p){return p.ownerId===u.id})[0]||null}
-function signIn(u){DB.session=u.id;persist("session");renderHeader()}
-function signOut(){DB.session=null;persist("session");renderHeader()}
-function emailTaken(email,exceptId){return DB.users.some(function(u){return u.email.toLowerCase()===email.toLowerCase()&&u.id!==exceptId})}
+/* ---------- accounts: Supabase ---------- */
+
+function userById(id) {
+  if (AUTH_USER && AUTH_USER.id === id) {
+    return AUTH_USER;
+  }
+
+  return DB.users.find(function(user) {
+    return user.id === id;
+  }) || null;
+}
+
+function me() {
+  return AUTH_USER;
+}
+
+function isAdmin() {
+  return !!AUTH_USER && AUTH_USER.role === "admin";
+}
+
+function myProfile() {
+  var user = me();
+
+  if (!user) return null;
+
+  return DB.custom.find(function(profile) {
+    return profile.ownerId === user.id;
+  }) || null;
+}
+
+async function loadSupabaseProfile(session) {
+  if (!session || !session.user) {
+    AUTH_USER = null;
+    DB.session = null;
+    return null;
+  }
+
+  var result = await supabaseClient
+    .from("profiles")
+    .select("*")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  if (result.error) {
+    console.error("Could not load profile:", result.error);
+    throw result.error;
+  }
+
+  var profile = result.data;
+
+  if (!profile) {
+    console.warn(
+      "No profile record exists for this account yet:",
+      session.user.id
+    );
+
+    AUTH_USER = {
+      id: session.user.id,
+      email: session.user.email || "",
+      full_name: session.user.user_metadata?.full_name || "",
+      role: session.user.user_metadata?.role || "musician"
+    };
+  } else {
+    AUTH_USER = {
+      id: profile.id,
+      email: session.user.email || "",
+      name: profile.full_name || "",
+      full_name: profile.full_name || "",
+      role: profile.role || "musician",
+      city: profile.city || "",
+      state: profile.state || "",
+      country: profile.country || "",
+      bio: profile.bio || ""
+    };
+  }
+
+  DB.session = AUTH_USER.id;
+
+  return AUTH_USER;
+}
+
+async function signIn(credentials) {
+  var result = await supabaseClient.auth.signInWithPassword({
+    email: credentials.email,
+    password: credentials.password
+  });
+
+  if (result.error) throw result.error;
+
+  await loadSupabaseProfile(result.data.session);
+
+  renderHeader();
+
+  return AUTH_USER;
+}
+
+async function signOut() {
+  var result = await supabaseClient.auth.signOut();
+
+  if (result.error) {
+    console.error("Sign-out failed:", result.error);
+    throw result.error;
+  }
+
+  AUTH_USER = null;
+  DB.session = null;
+
+  renderHeader();
+}
+
+function emailTaken(email, exceptId) {
+  return DB.users.some(function(user) {
+    return user.email.toLowerCase() === email.toLowerCase()
+      && user.id !== exceptId;
+  });
+}
 
 /* ---------- notifications (simulated email) ---------- */
 function notify(userId,email,subject,body,link){
