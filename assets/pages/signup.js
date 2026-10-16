@@ -29,7 +29,7 @@ function viewSignup(c) {
               '<input type="radio" name="role" value="pianist"' +
               (role === "pianist" ? " checked" : "") + '>' +
               '<span><b>Accompanist</b>' +
-              '<small>Students and professionals</small></span>' +
+              '<small>I am an accompanist</small></span>' +
             '</label>' +
           '</div>' +
 
