@@ -536,15 +536,14 @@ function authDialog() {
           '<input id="sn" name="sn" maxlength="80" autocomplete="name"></div>' +
         '<div class="field"><label for="se">Email address</label>' +
           '<input id="se" name="se" type="email" autocomplete="email"></div>' +
-        ```
-    '<div class="field"><label for="sp">Password</label>' +
-      '<input id="sp" name="sp" type="password" autocomplete="new-password" minlength="8">' +
-      '<small class="password-hint">Your password must contain:</small>' +
-      '<small class="password-hint">• At least 8 characters</small>' +
-      '<small class="password-hint">• At least one uppercase letter (A–Z)</small>' +
-      '<small class="password-hint">• At least one lowercase letter (a–z)</small>' +
-      '<small class="password-hint">• At least one digit (0–9)</small></div>' +
-```
+        '<div class="field"><label for="sp">Password</label>' +
+          '<input id="sp" name="sp" type="password" autocomplete="new-password" minlength="8">' +
+          '<small class="password-hint">Your password must contain:</small>' +
+          '<small class="password-hint">• At least 8 characters</small>' +
+          '<small class="password-hint">• At least one uppercase letter (A–Z)</small>' +
+          '<small class="password-hint">• At least one lowercase letter (a–z)</small>' +
+          '<small class="password-hint">• At least one digit (0–9)</small></div>' +
+
 
         '<div class="field"><label for="sc">Confirm password</label>' +
           '<input id="sc" name="sc" type="password" autocomplete="new-password" minlength="8"></div>' +
