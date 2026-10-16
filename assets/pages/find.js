@@ -98,3 +98,106 @@ function onField(e){var k=MAPID[e.target.id];if(!k)return;F[k]=k==="r"?+e.target
 document.addEventListener("input",function(e){if(e.target.id==="fq"||e.target.id==="floc")onField(e)});
 document.addEventListener("change",onField);
 mount(viewFind,"find");
+async function loadRemoteAccompanists() {
+  try {
+    await AUTH_READY;
+
+    if (typeof supabaseClient === "undefined" || !supabaseClient) {
+      return;
+    }
+
+    var result = await supabaseClient
+      .from("profiles")
+      .select(
+        "id, full_name, role, city, bio, " +
+        "pianist_profiles!inner(" +
+          "hourly_rate, years_experience, instruments, " +
+          "specialties, available_for_hire, is_published, " +
+          "profile_details" +
+        ")"
+      )
+      .in("role", ["pianist", "both"])
+      .eq("pianist_profiles.is_published", true)
+      .eq("pianist_profiles.available_for_hire", true)
+      .gt("pianist_profiles.hourly_rate", 0);
+
+    if (result.error) throw result.error;
+
+    var rows = result.data || [];
+
+    rows.forEach(function(row) {
+      var pp = row.pianist_profiles;
+
+      if (Array.isArray(pp)) {
+        pp = pp[0];
+      }
+
+      if (!pp) return;
+
+      var details = pp.profile_details || {};
+      var city = row.city || "";
+      var place = placeOf(city);
+
+      var services = details.services || {};
+
+      if (!Object.keys(services).length && pp.hourly_rate != null) {
+        services = {
+          "Rehearsal": Number(pp.hourly_rate)
+        };
+      }
+
+      var profile = {
+        id: row.id,
+        ownerId: row.id,
+        name: row.full_name || "Accompanist",
+        city: city,
+        lat: place ? place.lat : null,
+        lng: place ? place.lng : null,
+        bio: row.bio || "",
+        level: details.level || "Accompanist",
+        exp: Number(pp.years_experience || 0),
+        inst: pp.instruments || [],
+        specialties: pp.specialties || [],
+        purposes: details.purposes || [],
+        services: services,
+        languages: details.languages || [],
+        education: details.education || "",
+        rep: details.repertoire || [],
+        avail: details.availability || {},
+        travelFee: Number(details.travelFee || 0),
+        travelRadius: Number(details.travelRadius || 0),
+        studio: !!details.studio,
+        photo: "",
+        sample: false,
+        hidden: false,
+        suspended: false,
+        rating: 0,
+        reviews: 0,
+        completed: 0
+      };
+
+      // Replace an existing cached copy of this same profile.
+      var index = DB.custom.findIndex(function(p) {
+        return p.id === profile.id;
+      });
+
+      if (index >= 0) {
+        DB.custom[index] = profile;
+      } else {
+        DB.custom.push(profile);
+      }
+    });
+
+    persist("custom");
+
+    // Refresh the current search results with the newly loaded profiles.
+    if (typeof renderResults === "function") {
+      renderResults();
+    }
+
+  } catch (error) {
+    console.error("Could not load accompanists from Supabase:", error);
+  }
+}
+
+loadRemoteAccompanists();
