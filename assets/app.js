@@ -226,11 +226,13 @@ async function loadSupabaseProfile(session) {
       session.user.id
     );
 
+    var metaName = session.user.user_metadata?.full_name || "";
     AUTH_USER = {
       id: session.user.id,
       email: session.user.email || "",
-      full_name: session.user.user_metadata?.full_name || "",
-      role: session.user.user_metadata?.role || "musician"
+      name: metaName || (session.user.email || "Member").split("@")[0],
+      full_name: metaName,
+      role: session.user.user_metadata?.role === "pianist" ? "pianist" : "musician"
     };
   } else {
     AUTH_USER = {
@@ -352,7 +354,7 @@ function dashShell(tab,inner){
     return '<a href="'+l[2]+'"'+(l[0]===tab?' aria-current="page"':'')+'>'+l[1]+b+'</a>';
   }).join("")+'</nav><div>'+inner+'</div></div></div>';
 }
-function guard(){if(!me())return {redirect:"login.html?next="+encodeURIComponent(thisPage())};return null}
+function guard(){if(!me())return {redirect:"index.html?auth=login&next="+encodeURIComponent(thisPage())};return null}
 function guardAdmin(){var g=guard();if(g)return g;if(!isAdmin())return {title:"Not allowed – Accord",html:notFound("This area is for administrators.")};return null}
 
 /* ---------- header and footer (edit nav links here, once) ---------- */
@@ -413,6 +415,7 @@ function mount(viewFn,route){
    AUTH_READY.then(function() {
     renderHeader();
     draw(false);
+    openAuthFromUrl();
   });
 }
 function draw(keepScroll){
@@ -473,3 +476,281 @@ function faqHTML(){
    ["How should I compare rates?","Rates are per hour in US dollars and vary by service. Travel fees are listed on each profile. Unfamiliar pieces may involve extra preparation fees, so ask before you confirm."]];
   return '<div class="faq">'+q.map(function(x){return '<details><summary>'+esc(x[0])+'</summary><p>'+esc(x[1])+'</p></details>'}).join("")+'</div>';
 }
+
+/* =====================================================================
+   Log in / Create account popup
+   Works on every page. Opens from the header, footer, any "Request
+   booking" button, or a URL like index.html?auth=login&next=dashboard.html
+   ===================================================================== */
+var AUTH_DLG = null;
+var AUTH_OPTS = {};
+var AUTH_DOWN_ON_BACKDROP = false;
+
+function authDialog() {
+  if (AUTH_DLG) return AUTH_DLG;
+
+  var d = document.createElement("dialog");
+  d.id = "authDlg";
+  d.className = "auth-dlg";
+  d.setAttribute("aria-labelledby", "authTitle");
+
+  d.innerHTML =
+    '<div class="auth-box">' +
+      '<button class="icon-btn auth-x" type="button" data-auth-close aria-label="Close">✕</button>' +
+      '<h2 id="authTitle"></h2>' +
+      '<p class="auth-note" id="authNote" hidden></p>' +
+
+      '<div class="auth-tabs" role="tablist" aria-label="Log in or create an account">' +
+        '<button type="button" role="tab" id="authTabLogin" aria-controls="authLogin" data-auth-mode="login">Log in</button>' +
+        '<button type="button" role="tab" id="authTabSignup" aria-controls="authSignup" data-auth-mode="signup">Create account</button>' +
+      '</div>' +
+
+      /* ---- log in ---- */
+      '<form class="form" id="authLogin" role="tabpanel" aria-labelledby="authTabLogin" data-form="login" novalidate>' +
+        '<div class="field"><label for="le">Email address</label>' +
+          '<input id="le" name="le" type="email" autocomplete="email"></div>' +
+        '<div class="field"><label for="lp">Password</label>' +
+          '<input id="lp" name="lp" type="password" autocomplete="current-password"></div>' +
+        '<p class="err" data-err role="alert" hidden></p>' +
+        '<button class="btn primary block" type="submit">Log in</button>' +
+        '<p class="note auth-switch">New to Accord? <button type="button" class="linkbtn" data-auth-mode="signup">Create an account</button></p>' +
+      '</form>' +
+
+      /* ---- create account ---- */
+      '<form class="form" id="authSignup" role="tabpanel" aria-labelledby="authTabSignup" data-form="signup" novalidate hidden>' +
+        '<div class="roles" role="radiogroup" aria-label="I am a">' +
+          '<label class="role"><input type="radio" name="role" value="musician" checked>' +
+            '<span><b>Musician</b><small>I need an accompanist</small></span></label>' +
+          '<label class="role"><input type="radio" name="role" value="pianist">' +
+            '<span><b>Accompanist</b><small>Students and professionals</small></span></label>' +
+        '</div>' +
+        '<div class="field"><label for="sn">Your name</label>' +
+          '<input id="sn" name="sn" maxlength="80" autocomplete="name"></div>' +
+        '<div class="field"><label for="se">Email address</label>' +
+          '<input id="se" name="se" type="email" autocomplete="email"></div>' +
+        '<div class="field"><label for="sp">Password</label>' +
+          '<input id="sp" name="sp" type="password" autocomplete="new-password" minlength="8">' +
+          '<small>Use at least 8 characters.</small></div>' +
+        '<div class="field"><label for="sc">Confirm password</label>' +
+          '<input id="sc" name="sc" type="password" autocomplete="new-password" minlength="8"></div>' +
+        '<p class="err" data-err role="alert" hidden></p>' +
+        '<button class="btn primary block" type="submit">Create account</button>' +
+        '<p class="note auth-switch">Already have an account? <button type="button" class="linkbtn" data-auth-mode="login">Log in</button></p>' +
+      '</form>' +
+
+      /* ---- "check your email" message ---- */
+      '<div id="authDone" hidden>' +
+        '<div class="done"><div class="tick" aria-hidden="true">✓</div>' +
+        '<h3 style="font-size:24px;font-weight:600">Check your email</h3>' +
+        '<p class="note" style="margin:8px 0 18px" id="authDoneMsg"></p>' +
+        '<button class="btn block" type="button" data-auth-mode="login">Back to log in</button></div>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(d);
+
+  /* close on the backdrop, but not when a text selection merely ends there */
+  d.addEventListener("pointerdown", function (e) { AUTH_DOWN_ON_BACKDROP = (e.target === d); });
+  d.addEventListener("click", function (e) {
+    if (e.target === d && AUTH_DOWN_ON_BACKDROP) { closeAuth(); return; }
+    if (e.target.closest("[data-auth-close]")) { closeAuth(); return; }
+    var m = e.target.closest("[data-auth-mode]");
+    if (m) setAuthMode(m.dataset.authMode, true);
+  });
+
+  /* left and right arrow keys move between the two tabs */
+  d.addEventListener("keydown", function (e) {
+    if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && e.target.closest(".auth-tabs")) {
+      setAuthMode(e.target.id === "authTabLogin" ? "signup" : "login", true);
+      $(e.target.id === "authTabLogin" ? "#authTabSignup" : "#authTabLogin").focus();
+    }
+  });
+
+  AUTH_DLG = d;
+  return d;
+}
+
+function setAuthMode(mode, focusField) {
+  var d = authDialog(), login = mode !== "signup";
+  $("#authLogin").hidden = !login;
+  $("#authSignup").hidden = login;
+  $("#authDone").hidden = true;
+  $(".auth-tabs").hidden = false;
+  $("#authTabLogin").setAttribute("aria-selected", login);
+  $("#authTabSignup").setAttribute("aria-selected", !login);
+  $("#authTabLogin").tabIndex = login ? 0 : -1;
+  $("#authTabSignup").tabIndex = login ? -1 : 0;
+  $("#authTitle").textContent = login ? "Welcome back" : "Create your account";
+  [].forEach.call(d.querySelectorAll("[data-err]"), function (e) { e.hidden = true; });
+  if (focusField) $(login ? "#le" : "#sn", d).focus();
+}
+
+function openAuth(mode, opts) {
+  AUTH_OPTS = opts || {};
+  var d = authDialog();
+  setAuthMode(mode === "signup" ? "signup" : "login", false);
+
+  var note = $("#authNote");
+  note.textContent = AUTH_OPTS.note || "";
+  note.hidden = !AUTH_OPTS.note;
+
+  if (AUTH_OPTS.role === "pianist" || AUTH_OPTS.role === "musician") {
+    var r = $('#authSignup input[name="role"][value="' + AUTH_OPTS.role + '"]');
+    if (r) r.checked = true;
+  }
+
+  if (!d.open) {
+    if (typeof d.showModal === "function") d.showModal();
+    else d.setAttribute("open", "");
+  }
+  $(mode === "signup" ? "#sn" : "#le", d).focus();
+}
+
+function closeAuth() {
+  if (!AUTH_DLG) return;
+  if (typeof AUTH_DLG.close === "function") AUTH_DLG.close();
+  else AUTH_DLG.removeAttribute("open");
+}
+
+/* Open the popup when the URL asks for it, then tidy the address bar. */
+function openAuthFromUrl() {
+  var mode = PARAMS.get("auth");
+  if (!mode) return;
+
+  var next = PARAMS.get("next"), role = PARAMS.get("role");
+  var rest = new URLSearchParams(location.search);
+  ["auth", "next", "role"].forEach(function (k) { rest.delete(k); });
+  try {
+    var q = rest.toString();
+    history.replaceState(null, "", location.pathname + (q ? "?" + q : ""));
+  } catch (e) {}
+
+  if (me()) {                       /* already logged in: just continue */
+    go(safeNext(next) || "dashboard.html");
+    return;
+  }
+  openAuth(mode === "signup" ? "signup" : "login", {
+    role: role,
+    next: next,
+    note: safeNext(next) ? "Log in or create an account to continue." : ""
+  });
+}
+
+/* Any link to login.html, signup.html or book.html opens the popup in place when logged out. */
+document.addEventListener("click", function (e) {
+  if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  var a = e.target.closest("a[href]");
+  if (!a || me()) return;
+
+  var href = a.getAttribute("href");
+  var m = /^(login|signup)\.html(\?.*)?$/.exec(href);
+
+  if (m) {
+    e.preventDefault();
+    var q = new URLSearchParams(m[2] || "");
+    openAuth(m[1], { role: q.get("role"), next: q.get("next") });
+  } else if (/^book\.html\?/.test(href)) {
+    e.preventDefault();
+    openAuth("login", { next: href, note: "Log in or create an account to request a booking." });
+  }
+});
+
+function authBusy(f, busy, label) {
+  var b = f.querySelector('button[type="submit"]');
+  b.disabled = busy;
+  if (label) b.textContent = label;
+}
+
+/* ---------- Log in ---------- */
+FORMS.login = async function (f) {
+  var email = f.elements.le.value.trim().toLowerCase();
+  var password = f.elements.lp.value;
+
+  if (!/^\S+@\S+\.\S+$/.test(email)) return fail(f, "Please enter a valid email address.");
+  if (!password) return fail(f, "Please enter your password.");
+  if (typeof supabaseClient === "undefined" || !supabaseClient.auth) {
+    return fail(f, "The account service could not load. Please refresh the page and try again.");
+  }
+
+  authBusy(f, true, "Logging in…");
+  try {
+    var user = await signIn({ email: email, password: password });
+    var next = safeNext(AUTH_OPTS.next);
+    f.reset();
+    closeAuth();
+    toast("Welcome back, " + (user.name || "friend").split(" ")[0]);
+    if (next) go(next); else rerender();
+  } catch (error) {
+    console.error("Login error:", error);
+    var msg = String((error && error.message) || "");
+    fail(f, /not confirmed/i.test(msg)
+      ? "Please confirm your email first. Check your inbox for the confirmation link."
+      : "We couldn't log you in. Check your email and password and try again.");
+  } finally {
+    authBusy(f, false, "Log in");
+  }
+};
+
+/* ---------- Create account ---------- */
+FORMS.signup = async function (f) {
+  var name = f.elements.sn.value.trim();
+  var email = f.elements.se.value.trim().toLowerCase();
+  var password = f.elements.sp.value;
+  var roleInput = f.querySelector('input[name="role"]:checked');
+  var role = roleInput && roleInput.value === "pianist" ? "pianist" : "musician";
+
+  if (!name) return fail(f, "Please enter your name.");
+  if (!/^\S+@\S+\.\S+$/.test(email)) return fail(f, "Please enter a valid email address.");
+  if (password.length < 8) return fail(f, "Your password must contain at least 8 characters.");
+  if (password !== f.elements.sc.value) return fail(f, "Your passwords do not match.");
+  if (typeof supabaseClient === "undefined" || !supabaseClient.auth) {
+    return fail(f, "The account service could not load. Please refresh the page and try again.");
+  }
+
+  authBusy(f, true, "Creating account…");
+  try {
+    var result = await supabaseClient.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: { full_name: name, role: role },
+        emailRedirectTo: location.origin + location.pathname.replace(/[^\/]*$/, "") + "index.html"
+      }
+    });
+    if (result.error) throw result.error;
+
+    /* Supabase hides duplicate emails by returning a user with no identities. */
+    var u = result.data && result.data.user;
+    if (u && Array.isArray(u.identities) && u.identities.length === 0) {
+      return fail(f, "An account with this email already exists. Try logging in instead.");
+    }
+
+    if (result.data.session) {          /* email confirmation is switched off: logged in now */
+      await loadSupabaseProfile(result.data.session);
+      renderHeader();
+      var next = safeNext(AUTH_OPTS.next);
+      f.reset();
+      closeAuth();
+      toast("Welcome to Accord, " + name.split(" ")[0]);
+      if (role === "pianist") go("my-profile.html");
+      else if (next) go(next);
+      else rerender();
+    } else {                            /* email confirmation is on: ask them to check their inbox */
+      f.reset();
+      $("#authSignup").hidden = true;
+      $(".auth-tabs").hidden = true;
+      $("#authTitle").textContent = "Almost there";
+      $("#authDoneMsg").textContent = "We sent a confirmation link to " + email + ". Open it, then come back and log in.";
+      $("#authDone").hidden = false;
+    }
+  } catch (error) {
+    console.error("Signup error:", error);
+    var m = String((error && error.message) || "We couldn't create your account. Please try again.");
+    if (/already registered|already exists|user already/i.test(m)) {
+      m = "An account with this email already exists. Try logging in instead.";
+    }
+    fail(f, m);
+  } finally {
+    authBusy(f, false, "Create account");
+  }
+};
