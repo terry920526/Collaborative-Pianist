@@ -1,4 +1,4 @@
-```javascript
+
 /* Login page — Supabase Authentication */
 
 function viewLogin(c) {
@@ -96,4 +96,3 @@ FORMS.login = async function (f) {
 };
 
 mount(viewLogin, "");
-```
