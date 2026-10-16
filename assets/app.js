@@ -10,6 +10,70 @@ var STATUS={requested:"Awaiting accompanist",proposed:"New time proposed",confir
 var RESPONSES=["Under 2 hours","Under 6 hours","Under 24 hours","Within 2 days"];
 var TIMES=[];(function(){for(var h=8;h<=21;h++){["00","30"].forEach(function(m){if(!(h===21&&m==="30"))TIMES.push((h<10?"0"+h:""+h)+":"+m)})}})();
 var CATS=[["prep","Musical preparation"],["rel","Reliability"],["comm","Communication"],["prof","Professionalism"],["overall","Overall experience"]];
+/* ---------- Supabase authentication initialization ---------- */
+
+var AUTH_USER = null;
+var AUTH_READY = null;
+
+function loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    var script = document.createElement("script");
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = function() {
+      reject(new Error("Could not load " + src));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+async function initializeSupabaseAuth() {
+  try {
+    if (typeof supabaseClient === "undefined") {
+      if (!window.supabase) {
+        await loadScript(
+          "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+        );
+      }
+
+      await loadScript("assets/supabase.js");
+    }
+
+    var result = await supabaseClient.auth.getSession();
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    if (result.data.session) {
+      await loadSupabaseProfile(result.data.session);
+    }
+
+    supabaseClient.auth.onAuthStateChange(function(event, session) {
+      setTimeout(async function() {
+        try {
+          if (session) {
+            await loadSupabaseProfile(session);
+          } else {
+            AUTH_USER = null;
+            DB.session = null;
+          }
+
+          renderHeader();
+        } catch (error) {
+          console.error("Authentication update failed:", error);
+        }
+      }, 0);
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Supabase initialization failed:", error);
+    return false;
+  }
+}
+
+AUTH_READY = initializeSupabaseAuth();
 var REPORT_REASONS=["Inappropriate behavior","Misrepresentation of credentials","Repeated cancellations","Payment dispute","Suspicious account","Other"];
 
 /* ---------- storage ---------- */
