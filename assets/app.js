@@ -410,8 +410,10 @@ function mount(viewFn,route){
     var next=dark?"light":"dark";root.setAttribute("data-theme",next);
     try{localStorage.setItem("accord-theme",next)}catch(e){}
   });
-  renderHeader();
-  draw(false);
+   AUTH_READY.then(function() {
+    renderHeader();
+    draw(false);
+  });
 }
 function draw(keepScroll){
   var y=window.scrollY,out=CUR.fn({params:PARAMS});
