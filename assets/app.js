@@ -327,7 +327,7 @@ function cardHTML(p,q,from){
       '<div class="rate"><span>from</span><b>'+money(minRate(p))+'</b><span>per hour</span></div></div>'+
     '<p class="bio">'+hl(p.bio,w)+'</p>'+match+
     '<div class="tags">'+(own?'<span class="tag new">Your listing</span>':'')+tags+'</div>'+
-    '<div class="card-actions"><a class="btn" href="'+pianistUrl(p.id)+'">View profile</a><a class="btn primary" href="book.html?pianist='+encodeURIComponent(p.id)+'">Request booking</a>'+
+    '<div class="card-actions"><a class="btn" href="'+pianistUrl(p.id)+'">View profile</a><a class="btn primary" href="book.html?pianist='+encodeURIComponent(p.id)+'">Connect</a>'+
     '<button class="save" type="button" data-action="save" data-id="'+esc(p.id)+'" aria-pressed="'+(!!DB.saved[p.id])+'" aria-label="Save '+esc(p.name)+' to shortlist" title="Save to shortlist">'+(DB.saved[p.id]?"♥":"♡")+'</button></div>'+
   '</article>';
 }
