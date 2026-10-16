@@ -97,9 +97,29 @@ FORMS.signup = async function (f) {
     return fail(f, "Please enter a valid email address.");
   }
 
-  if (password.length < 8) {
-    return fail(f, "Your password must contain at least 8 characters.");
-  }
+ // Password requirements
+var passwordErrors = [];
+
+if (password.length < 8) {
+  passwordErrors.push("At least 8 characters");
+}
+
+if (!/[A-Z]/.test(password)) {
+  passwordErrors.push("At least one uppercase letter (A-Z)");
+}
+
+if (!/[a-z]/.test(password)) {
+  passwordErrors.push("At least one lowercase letter (a-z)");
+}
+
+if (!/[0-9]/.test(password)) {
+  passwordErrors.push("At least one number (0-9)");
+}
+
+if (passwordErrors.length > 0) {
+  alert("Please fix your password:\n\n" + passwordErrors.join("\n"));
+  return;
+}
 
   if (password !== confirmPassword) {
     return fail(f, "Your passwords do not match.");
