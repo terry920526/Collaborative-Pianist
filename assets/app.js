@@ -530,7 +530,7 @@ function authDialog() {
           '<label class="role"><input type="radio" name="role" value="musician" checked>' +
             '<span><b>Musician</b><small>I need an accompanist</small></span></label>' +
           '<label class="role"><input type="radio" name="role" value="pianist">' +
-            '<span><b>Accompanist</b><small>Students and professionals</small></span></label>' +
+            '<span><b>Accompanist</b><small>I am an accompanist</small></span></label>' +
         '</div>' +
         '<div class="field"><label for="sn">Your name</label>' +
           '<input id="sn" name="sn" maxlength="80" autocomplete="name"></div>' +
