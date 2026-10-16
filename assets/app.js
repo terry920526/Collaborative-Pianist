@@ -137,9 +137,17 @@ function miles(a,b){
 }
 
 /* ---------- accompanist data ---------- */
-function visible(p){
-  if(p.hidden||p.suspended)return false;
-  if(p.ownerId){var u=userById(p.ownerId);if(!u||u.suspended)return false}
+function visible(p) {
+  if (p.hidden || p.suspended) return false;
+
+  if (p.ownerId) {
+    var u = userById(p.ownerId);
+
+    // If the account is known locally, respect its suspension status.
+    // Supabase accounts may not exist in the browser's local user list.
+    if (u && u.suspended) return false;
+  }
+
   return true;
 }
 function listed(){return SAMPLE.concat(DB.custom).filter(visible)}
