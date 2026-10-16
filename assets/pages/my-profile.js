@@ -45,34 +45,355 @@ document.addEventListener("change",function(e){
   };fr.readAsDataURL(e.target.files[0]);
 });
 ACTIONS["photo-clear"]=function(){PHOTO="";var n=$("#pn").value||"?";$("#photoPrev").innerHTML=avatar({id:"new",name:n,photo:""},"xl")};
-FORMS.profile=function(f){
-  var u=me(),g=function(n){return f.elements[n].value.trim()},lines=function(n){return g(n).split("\n").map(function(x){return x.trim()}).filter(Boolean)};
-  var name=g("pn"),city=g("pc"),zip=g("pz"),bio=g("pb");
-  var services={},bad=false;
-  vals(f,"svc").forEach(function(s){var rate=+f.elements["rate-"+SERVICES.indexOf(s)].value;if(!(rate>=20&&rate<=500))bad=true;services[s]=rate});
-  var inst=vals(f,"pi"),spec=vals(f,"ps"),purp=vals(f,"pp"),langs=vals(f,"pg"),rep=lines("prp").slice(0,30),studio=f.elements.studio.checked,radius=+g("pr")||0,fee=+g("pt")||0;
-  if(!name)return fail(f,"Enter the name musicians will see.");
-  if(!city)return fail(f,"Choose your base city.");
-  if(zip&&!/^\d{5}$/.test(zip))return fail(f,"Enter a 5-digit ZIP code, or leave it blank.");
-  if(!Object.keys(services).length)return fail(f,"Select at least one service you offer.");
-  if(bad)return fail(f,"Enter an hourly rate between $20 and $500 for each service you offer.");
-  if(!studio&&radius<=0)return fail(f,"Choose a studio option, or enter how far you will travel.");
-  if(!inst.length)return fail(f,"Choose at least one instrument or voice type.");
-  if(!spec.length)return fail(f,"Choose at least one musical specialty.");
-  if(!purp.length)return fail(f,"Choose at least one purpose you are good for.");
-  if(!langs.length)return fail(f,"Choose at least one language.");
-  if(!rep.length)return fail(f,"Add at least one work you already know, so musicians can find you by repertoire.");
-  if(bio.length<40)return fail(f,"Write a short biography of at least 40 characters.");
-  var videos=[];
-  var vl=lines("pv");for(var i=0;i<vl.length;i++){var parts=vl[i].split("|");var url=(parts[parts.length-1]||"").trim(),title=parts.length>1?parts.slice(0,-1).join("|").trim():"Performance video";if(!/^https?:\/\/\S+$/i.test(url))return fail(f,"Video line "+(i+1)+" needs a link starting with https://");videos.push({title:title||"Performance video",url:url})}
-  var avail={};vals(f,"av").forEach(function(v){var a=v.split("|");(avail[a[0]]=avail[a[0]]||[]).push(a[1])});
-  var pl=placeOf(city),p=myProfile(),isNew=!p;
-  if(isNew){p={id:uid("p"),ownerId:u.id,created:Date.now()};DB.custom.push(p)}
-  Object.assign(p,{name:name,city:city,zip:zip,lat:pl.lat,lng:pl.lng,level:g("pl"),exp:+g("py")||0,specialties:spec,inst:inst,purposes:purp,services:services,travelFee:fee,travelRadius:radius,studio:studio,languages:langs,education:g("pe"),bio:bio,rep:rep,avail:avail,videos:videos,photo:PHOTO,hidden:f.elements.phid.checked});
-  if(u.role!=="pianist"){u.role="pianist";persist("users")}
-  persist("custom");
-  try{}catch(e){}
-  toast(isNew?"Your profile is live":"Profile saved");
-  if(isNew)setTimeout(function(){go(pianistUrl(p.id))},400);else rerender();
+FORMS.profile = async function(f) {
+  var u = me();
+
+  if (!u || !u.id) {
+    return fail(f, "Please log in before saving your profile.");
+  }
+
+  if (typeof supabaseClient === "undefined" || !supabaseClient) {
+    return fail(f, "The account service is unavailable. Please refresh and try again.");
+  }
+
+  var g = function(n) {
+    return f.elements[n].value.trim();
+  };
+
+  var lines = function(n) {
+    return g(n).split("\n").map(function(x) {
+      return x.trim();
+    }).filter(Boolean);
+  };
+
+  var name = g("pn");
+  var city = g("pc");
+  var zip = g("pz");
+  var bio = g("pb");
+
+  var services = {};
+  var bad = false;
+
+  vals(f, "svc").forEach(function(s) {
+    var rate = +f.elements["rate-" + SERVICES.indexOf(s)].value;
+
+    if (!(rate >= 20 && rate <= 500)) {
+      bad = true;
+    }
+
+    services[s] = rate;
+  });
+
+  var inst = vals(f, "pi");
+  var spec = vals(f, "ps");
+  var purp = vals(f, "pp");
+  var langs = vals(f, "pg");
+  var rep = lines("prp").slice(0, 30);
+
+  var studio = f.elements.studio.checked;
+  var radius = +g("pr") || 0;
+  var fee = +g("pt") || 0;
+
+  if (!name) return fail(f, "Enter the name musicians will see.");
+  if (!city) return fail(f, "Choose your base city.");
+
+  if (zip && !/^\d{5}$/.test(zip)) {
+    return fail(f, "Enter a 5-digit ZIP code, or leave it blank.");
+  }
+
+  if (!Object.keys(services).length) {
+    return fail(f, "Select at least one service you offer.");
+  }
+
+  if (bad) {
+    return fail(f, "Enter an hourly rate between $20 and $500.");
+  }
+
+  if (!studio && radius <= 0) {
+    return fail(f, "Choose a studio option, or enter how far you will travel.");
+  }
+
+  if (!inst.length) return fail(f, "Choose at least one instrument or voice type.");
+  if (!spec.length) return fail(f, "Choose at least one musical specialty.");
+  if (!purp.length) return fail(f, "Choose at least one purpose you are good for.");
+  if (!langs.length) return fail(f, "Choose at least one language.");
+  if (!rep.length) return fail(f, "Add at least one work you already know.");
+
+  if (bio.length < 40) {
+    return fail(f, "Write a biography of at least 40 characters.");
+  }
+
+  var videos = [];
+  var videoLines = lines("pv");
+
+  for (var i = 0; i < videoLines.length; i++) {
+    var parts = videoLines[i].split("|");
+    var url = (parts[parts.length - 1] || "").trim();
+    var title = parts.length > 1
+      ? parts.slice(0, -1).join("|").trim()
+      : "Performance video";
+
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      return fail(f, "Video line " + (i + 1) + " needs a valid link starting with https://");
+    }
+
+    videos.push({
+      title: title || "Performance video",
+      url: url
+    });
+  }
+
+  var avail = {};
+
+  vals(f, "av").forEach(function(v) {
+    var a = v.split("|");
+    (avail[a[0]] = avail[a[0]] || []).push(a[1]);
+  });
+
+  var place = placeOf(city);
+  var existing = myProfile();
+
+  var profile = {
+    id: u.id,
+    ownerId: u.id,
+    name: name,
+    city: city,
+    zip: zip,
+    lat: place ? place.lat : null,
+    lng: place ? place.lng : null,
+    level: g("pl"),
+    exp: +g("py") || 0,
+    specialties: spec,
+    inst: inst,
+    purposes: purp,
+    services: services,
+    travelFee: fee,
+    travelRadius: radius,
+    studio: studio,
+    languages: langs,
+    education: g("pe"),
+    bio: bio,
+    rep: rep,
+    avail: avail,
+    videos: videos,
+    photo: PHOTO,
+    hidden: f.elements.phid.checked,
+    suspended: false,
+    sample: false
+  };
+
+  var rates = Object.keys(services).map(function(s) {
+    return services[s];
+  });
+
+  var lowestRate = Math.min.apply(null, rates);
+
+  var details = {
+    level: profile.level,
+    zip: profile.zip,
+    services: profile.services,
+    purposes: profile.purposes,
+    travelFee: profile.travelFee,
+    travelRadius: profile.travelRadius,
+    studio: profile.studio,
+    languages: profile.languages,
+    education: profile.education,
+    repertoire: profile.rep,
+    videos: profile.videos,
+    availability: profile.avail
+  };
+
+  var saveButton = f.querySelector('button[type="submit"]');
+
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.textContent = "Saving...";
+  }
+
+  try {
+    var selectedRole = u.role === "both" ? "both" : "pianist";
+
+    // Save the user's basic public profile.
+    var mainResult = await supabaseClient
+      .from("profiles")
+      .update({
+        full_name: name,
+        role: selectedRole,
+        city: city,
+        bio: bio,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", u.id)
+      .select("id")
+      .maybeSingle();
+
+    if (mainResult.error) throw mainResult.error;
+
+    // Recover gracefully if the main profile row does not exist.
+    if (!mainResult.data) {
+      var insertResult = await supabaseClient
+        .from("profiles")
+        .insert({
+          id: u.id,
+          full_name: name,
+          role: selectedRole,
+          city: city,
+          bio: bio
+        });
+
+      if (insertResult.error) throw insertResult.error;
+    }
+
+    // Save the accompanist's professional information.
+    var pianistResult = await supabaseClient
+      .from("pianist_profiles")
+      .upsert({
+        id: u.id,
+        hourly_rate: lowestRate,
+        years_experience: profile.exp,
+        instruments: inst,
+        specialties: spec,
+        available_for_hire: !profile.hidden,
+        is_published: !profile.hidden,
+        profile_details: details,
+        updated_at: new Date().toISOString()
+      });
+
+    if (pianistResult.error) throw pianistResult.error;
+
+    // Keep the current page's account information in sync.
+    u.name = name;
+    u.full_name = name;
+    u.role = selectedRole;
+    u.city = city;
+    u.bio = bio;
+
+    // Update the local cache so the existing interface can use the profile.
+    if (existing) {
+      Object.assign(existing, profile);
+    } else {
+      DB.custom.push(profile);
+    }
+
+    persist("custom");
+
+    toast(
+      profile.hidden
+        ? "Profile saved as hidden."
+        : "Your accompanist profile has been published!"
+    );
+
+    rerender();
+
+  } catch (error) {
+    console.error("Accord profile save failed:", error);
+
+    fail(
+      f,
+      "We couldn't save your profile. Please try again. If the problem continues, check the browser console for the Supabase error."
+    );
+
+  } finally {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.textContent = existing ? "Save changes" : "Publish profile";
+    }
+  }
 };
-mount(viewMyProfile,"");
+async function loadRemoteMyProfile() {
+  try {
+    await AUTH_READY;
+
+    var u = me();
+
+    if (!u || !u.id || typeof supabaseClient === "undefined") {
+      return;
+    }
+
+    var result = await supabaseClient
+      .from("pianist_profiles")
+      .select("*")
+      .eq("id", u.id)
+      .maybeSingle();
+
+    if (result.error) throw result.error;
+
+    var pp = result.data;
+
+    if (!pp) return;
+
+    var profileResult = await supabaseClient
+      .from("profiles")
+      .select("id, full_name, role, city, bio")
+      .eq("id", u.id)
+      .maybeSingle();
+
+    if (profileResult.error) throw profileResult.error;
+
+    var basic = profileResult.data || {};
+    var d = pp.profile_details || {};
+
+    var hasSavedData =
+      pp.hourly_rate != null ||
+      (pp.instruments && pp.instruments.length > 0) ||
+      (pp.specialties && pp.specialties.length > 0) ||
+      Object.keys(d).length > 0;
+
+    if (!hasSavedData) return;
+
+    var services = d.services || {};
+
+    if (!Object.keys(services).length && pp.hourly_rate != null) {
+      services = { "Rehearsal": pp.hourly_rate };
+    }
+
+    var profile = {
+      id: u.id,
+      ownerId: u.id,
+      name: basic.full_name || u.name || "",
+      city: basic.city || "",
+      zip: d.zip || "",
+      level: d.level || "Emerging professional",
+      exp: pp.years_experience || 0,
+      specialties: pp.specialties || [],
+      inst: pp.instruments || [],
+      purposes: d.purposes || [],
+      services: services,
+      travelFee: d.travelFee || 0,
+      travelRadius: d.travelRadius == null ? 15 : d.travelRadius,
+      studio: d.studio !== false,
+      languages: d.languages || ["English"],
+      education: d.education || "",
+      bio: basic.bio || "",
+      rep: d.repertoire || [],
+      avail: d.availability || {},
+      videos: d.videos || [],
+      photo: "",
+      hidden: !pp.is_published,
+      suspended: false,
+      sample: false
+    };
+
+    var existing = DB.custom.find(function(p) {
+      return p.ownerId === u.id;
+    });
+
+    if (existing) {
+      Object.assign(existing, profile);
+    } else {
+      DB.custom.push(profile);
+    }
+
+    persist("custom");
+
+    // Refresh the page now that the saved profile has loaded.
+    rerender();
+
+  } catch (error) {
+    console.error("Could not load the saved accompanist profile:", error);
+  }
+}
+
+mount(viewMyProfile, "");
+
+AUTH_READY.then(loadRemoteMyProfile);
