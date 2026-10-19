@@ -900,12 +900,30 @@ FORMS.signup = async function (f) {
   var roleInput = f.querySelector('input[name="role"]:checked');
   var role = roleInput && roleInput.value === "pianist" ? "pianist" : "musician";
 
-  if (!firstName) return fail(f, "Please enter your first name.");
-  if (!lastName) return fail(f, "Please enter your last name.");
-  if (!/^\S+@\S+\.\S+$/.test(email)) return fail(f, "Please enter a valid email address.");
-  if (password.length < 8) return fail(f, "Your password must contain at least 8 characters.");
-  if (password !== f.elements.sc.value) return fail(f, "Your passwords do not match.");
-  if (typeof supabaseClient === "undefined" || !supabaseClient.auth) {
+// Validate first name.
+if (!firstName) {
+  return fail(f, "Please enter your first name.");
+}
+
+// Validate last name.
+if (!lastName) {
+  return fail(f, "Please enter your last name.");
+}
+
+// Validate email.
+if (!/^\S+@\S+\.\S+$/.test(email)) {
+  return fail(f, "Please enter a valid email address.");
+}
+
+// Validate password length.
+if (password.length < 8) {
+  return fail(f, "Your password must contain at least 8 characters, at least one uppercase letters, at least one lowercase letter, and at least one number.");
+}
+
+// Validate password confirmation.
+if (password !== f.elements.sc.value) {
+  return fail(f, "Your passwords do not match.");
+}
     return fail(f, "The account service could not load. Please refresh the page and try again.");
   }
 
