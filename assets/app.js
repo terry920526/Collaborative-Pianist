@@ -373,9 +373,9 @@ function profileFromRow(row) {
   return {
     id: row.id,
     ownerId: row.id,
-    name: [row.first_name, row.last_name]
-      .filter(Boolean)
-      .join(" ") || "Accompanist",
+    name: d.display_name ||
+      [row.first_name, row.last_name].filter(Boolean).join(" ") ||
+      "Accompanist",
     city: city,
     state: row.state || "",
     zip: d.zip || "",
