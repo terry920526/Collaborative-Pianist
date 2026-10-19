@@ -231,35 +231,52 @@ async function loadSupabaseProfile(session) {
     throw result.error;
   }
 
-  var profile = result.data;
+var profile = result.data;
 
-  if (!profile) {
-    console.warn(
-      "No profile record exists for this account yet:",
-      session.user.id
-    );
+if (!profile) {
+  console.warn(
+    "No profile record exists for this account yet:",
+    session.user.id
+  );
 
-    var metaName = session.user.user_metadata?.full_name || "";
-    AUTH_USER = {
-      id: session.user.id,
-      email: session.user.email || "",
-      name: metaName || (session.user.email || "Member").split("@")[0],
-      full_name: metaName,
-      role: session.user.user_metadata?.role === "pianist" ? "pianist" : "musician"
-    };
-  } else {
-    AUTH_USER = {
-      id: profile.id,
-      email: session.user.email || "",
-      name: profile.full_name || "",
-      full_name: profile.full_name || "",
-      role: profile.role || "musician",
-      city: profile.city || "",
-      state: profile.state || "",
-      country: profile.country || "",
-      bio: profile.bio || ""
-    };
-  }
+  var metaFirstName =
+    session.user.user_metadata?.first_name || "";
+
+  var metaLastName =
+    session.user.user_metadata?.last_name || "";
+
+  var metaName = [metaFirstName, metaLastName]
+    .filter(Boolean)
+    .join(" ");
+
+  AUTH_USER = {
+    id: session.user.id,
+    email: session.user.email || "",
+    first_name: metaFirstName,
+    last_name: metaLastName,
+    name: metaName || (session.user.email || "Member").split("@")[0],
+    role: session.user.user_metadata?.role || "musician"
+  };
+
+} else {
+  var firstName = profile.first_name || "";
+  var lastName = profile.last_name || "";
+
+  AUTH_USER = {
+    id: profile.id,
+    email: session.user.email || "",
+    first_name: firstName,
+    last_name: lastName,
+    name: [firstName, lastName]
+      .filter(Boolean)
+      .join(" "),
+    role: profile.role || "musician",
+    city: profile.city || "",
+    state: profile.state || "",
+    country: profile.country || "",
+    bio: profile.bio || ""
+  };
+}
 
   DB.session = AUTH_USER.id;
 
@@ -328,7 +345,7 @@ function savedList(){return listed().filter(function(p){return DB.saved[p.id]})}
    unpublished stops appearing.
    ===================================================================== */
 var PROFILE_SELECT =
-  "id, full_name, role, city, state, bio, " +
+  "id, first_name, last_name, role, city, state, bio, " +
   "pianist_profiles!inner(hourly_rate, years_experience, instruments, " +
   "specialties, available_for_hire, is_published, profile_details, created_at)";
 var PROFILE_CHECKED = {};   /* profile ids already checked against the database during this page view */
@@ -356,7 +373,9 @@ function profileFromRow(row) {
   return {
     id: row.id,
     ownerId: row.id,
-    name: row.full_name || "Accompanist",
+    name: [row.first_name, row.last_name]
+      .filter(Boolean)
+      .join(" ") || "Accompanist",
     city: city,
     state: row.state || "",
     zip: d.zip || "",
