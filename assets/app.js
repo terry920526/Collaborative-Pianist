@@ -4,7 +4,7 @@
    bookings, notifications, header/footer and mount().
    Accounts and published accompanist profiles come from Supabase.
    Bookings, reviews, notifications and the shortlist are kept in the
-   visitor's browser (localStorage).
+   visitor's browser (localStorage)
    ===================================================================== */
 
 var STATUS={requested:"Awaiting accompanist",proposed:"New time proposed",confirmed:"Confirmed",declined:"Declined",cancelled:"Cancelled",completed:"Completed"};
