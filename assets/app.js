@@ -2,11 +2,12 @@
    Accord – shared core. Loaded by every page after data.js.
    Provides storage, accounts, location search, availability, pricing,
    bookings, notifications, header/footer and mount().
-   PROTOTYPE: all data lives in this browser's localStorage. Emails are
-   simulated (see the notifications page and the admin "Emails" tab).
+   Accounts and published accompanist profiles come from Supabase.
+   Bookings, reviews, notifications and the shortlist are kept in the
+   visitor's browser (localStorage).
    ===================================================================== */
 
-var STATUS={requested:"Awaiting accompanist",proposed:"New time proposed",confirmed:"Confirmed",declined:"Declined",cancelled:"Cancelled",completed:"Completed",demo:"Sent (sample accompanist)"};
+var STATUS={requested:"Awaiting accompanist",proposed:"New time proposed",confirmed:"Confirmed",declined:"Declined",cancelled:"Cancelled",completed:"Completed"};
 var RESPONSES=["Under 2 hours","Under 6 hours","Under 24 hours","Within 2 days"];
 var TIMES=[];(function(){for(var h=8;h<=21;h++){["00","30"].forEach(function(m){if(!(h===21&&m==="30"))TIMES.push((h<10?"0"+h:""+h)+":"+m)})}})();
 var CATS=[["prep","Musical preparation"],["rel","Reliability"],["comm","Communication"],["prof","Professionalism"],["overall","Overall experience"]];
@@ -150,18 +151,22 @@ function visible(p) {
 
   return true;
 }
-function listed(){return SAMPLE.concat(DB.custom).filter(visible)}
-function getP(id){var a=SAMPLE.concat(DB.custom);for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
+function listed(){
+  /* On the search page, never show cached public profiles until Supabase has
+     successfully confirmed the current published directory. */
+  if (typeof REMOTE !== "undefined" && (!REMOTE.done || REMOTE.failed)) return [];
+  return DB.custom.filter(visible);
+}
+function getP(id){var a=DB.custom;for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
 function minRate(p){var v=Object.keys(p.services).map(function(k){return p.services[k]});return v.length?Math.min.apply(null,v):0}
 function revsFor(p){return DB.revs.filter(function(r){return r.pid===p.id&&!r.hidden})}
 function stats(p){
-  if(p.sample)return {rating:p.rating,reviews:p.reviews,cats:null};
   var r=revsFor(p);if(!r.length)return {rating:0,reviews:0,cats:null};
   var cats={};CATS.forEach(function(c){cats[c[0]]=r.reduce(function(s,x){return s+(x.scores[c[0]]||0)},0)/r.length});
   return {rating:cats.overall,reviews:r.length,cats:cats};
 }
-function completedCount(p){return p.sample?p.completed:DB.bookings.filter(function(b){return b.pid===p.id&&b.status==="completed"}).length}
-function score(p){var s=stats(p);return s.rating*Math.log(s.reviews+2)+(p.sample?0:2)}
+function completedCount(p){return DB.bookings.filter(function(b){return b.pid===p.id&&b.status==="completed"}).length}
+function score(p){var s=stats(p);return s.rating*Math.log(s.reviews+2)}
 function slotOf(start){var h=+start.split(":")[0];return h<12?"Morning":h<17?"Afternoon":"Evening"}
 function slotsFor(p,dateIso){
   var key=DAYS[(parseDay(dateIso).getDay()+6)%7],base=(p.avail&&p.avail[key])||[];
@@ -297,9 +302,9 @@ function emailTaken(email, exceptId) {
   });
 }
 
-/* ---------- notifications (simulated email) ---------- */
+/* ---------- notifications ---------- */
 function notify(userId,email,subject,body,link){
-  DB.notifs.unshift({id:uid("n"),to:userId||null,email:email||"(sample accompanist)",subject:subject,body:body,link:link||"",ts:Date.now(),read:false});
+  DB.notifs.unshift({id:uid("n"),to:userId||null,email:email||"(no email on file)",subject:subject,body:body,link:link||"",ts:Date.now(),read:false});
   DB.notifs=DB.notifs.slice(0,300);persist("notifs");
 }
 function myNotifs(){var u=me();return u?DB.notifs.filter(function(n){return n.to===u.id}):[]}
@@ -310,10 +315,170 @@ function getB(id){for(var i=0;i<DB.bookings.length;i++)if(DB.bookings[i].id===id
 function lastTs(b){return b.history.length?b.history[b.history.length-1].ts:b.ts}
 function myBookings(){var u=me();if(!u)return [];return DB.bookings.filter(function(b){return b.fromId===u.id||b.ownerId===u.id}).sort(function(a,b){return lastTs(b)-lastTs(a)})}
 function roleIn(b){var u=me();if(!u)return "";return b.ownerId===u.id?"pianist":b.fromId===u.id?"musician":""}
-function needsMe(b){var r=roleIn(b);return (r==="pianist"&&b.status==="requested")||(r==="musician"&&b.status==="proposed")||(r==="musician"&&b.status==="completed"&&!b.reviewed&&!!getP(b.pid)&&!getP(b.pid).sample)}
+function needsMe(b){var r=roleIn(b);return (r==="pianist"&&b.status==="requested")||(r==="musician"&&b.status==="proposed")||(r==="musician"&&b.status==="completed"&&!b.reviewed&&!!getP(b.pid))}
 function attention(){return myBookings().filter(needsMe).length}
 function addHistory(b,text){b.history.push({ts:Date.now(),text:text})}
 function savedList(){return listed().filter(function(p){return DB.saved[p.id]})}
+
+/* =====================================================================
+   Accompanist profiles from Supabase
+   The database is the source of truth. The copy kept in the browser
+   (DB.custom) only makes pages feel quick, and it is refreshed or pruned
+   every time the database is read, so a profile that was deleted or
+   unpublished stops appearing.
+   ===================================================================== */
+var PROFILE_SELECT =
+  "id, full_name, role, city, state, bio, " +
+  "pianist_profiles!inner(hourly_rate, years_experience, instruments, " +
+  "specialties, available_for_hire, is_published, profile_details, created_at)";
+var PROFILE_CHECKED = {};   /* profile ids already checked against the database during this page view */
+
+function remoteLive() {
+  return typeof supabaseClient !== "undefined" && !!supabaseClient && typeof supabaseClient.from === "function";
+}
+
+/* Turn one database row into the profile object the pages use. */
+function profileFromRow(row) {
+  var pp = row.pianist_profiles;
+  if (Array.isArray(pp)) pp = pp[0];
+  if (!pp) return null;
+
+  var d = pp.profile_details || {};
+  var city = row.city || "";
+  var place = placeOf(city);
+  var exp = Number(pp.years_experience || 0);
+
+  var services = d.services || {};
+  if (!Object.keys(services).length && pp.hourly_rate != null) {
+    services = { "Rehearsal": Number(pp.hourly_rate) };
+  }
+
+  return {
+    id: row.id,
+    ownerId: row.id,
+    name: row.full_name || "Accompanist",
+    city: city,
+    state: row.state || "",
+    zip: d.zip || "",
+    lat: place ? place.lat : null,
+    lng: place ? place.lng : null,
+    bio: row.bio || "",
+    level: d.level || (exp >= 7 ? "Established professional" : exp >= 3 ? "Emerging professional" : "Student"),
+    exp: exp,
+    inst: pp.instruments || [],
+    specialties: pp.specialties || [],
+    purposes: d.purposes || [],
+    services: services,
+    languages: d.languages || [],
+    education: d.education || "",
+    rep: d.repertoire || [],
+    avail: d.availability || {},
+    videos: d.videos || [],
+    travelFee: Number(d.travelFee || 0),
+    travelRadius: Number(d.travelRadius || 0),
+    studio: !!d.studio,
+    photo: "",
+    hidden: false,
+    suspended: false,
+    rating: 0,
+    reviews: 0,
+    completed: 0
+  };
+}
+
+function publishedAccompanistsQuery() {
+  return supabaseClient
+    .from("profiles")
+    .select(PROFILE_SELECT)
+    .in("role", ["pianist", "both"])
+    .eq("pianist_profiles.is_published", true)
+    .eq("pianist_profiles.available_for_hire", true)
+    .gt("pianist_profiles.hourly_rate", 0);
+}
+
+/* All published accompanists (or the newest few when a limit is given). */
+async function fetchPublishedAccompanists(limit) {
+  var q = publishedAccompanistsQuery();
+  if (limit) {
+    q = q.order("created_at", { foreignTable: "pianist_profiles", ascending: false }).limit(limit);
+  }
+  var result = await q;
+  if (result.error) throw result.error;
+  return (result.data || []).map(profileFromRow).filter(Boolean);
+}
+
+/* One published accompanist, or null when they do not exist or are not public. */
+async function fetchAccompanistById(id) {
+  var result = await publishedAccompanistsQuery().eq("id", id).maybeSingle();
+  if (result.error) throw result.error;
+  return result.data ? profileFromRow(result.data) : null;
+}
+
+/*
+ * Update the saved copy from a fresh database read.
+ *   complete = true  : `fresh` is the whole published list, so every other
+ *                      saved profile is removed.
+ *   complete = false : `fresh` is only part of the list, so others are left alone.
+ * The signed-in user's own profile is always kept, so they can still edit it
+ * while it is hidden. (My profile page checks that one against the database.)
+ */
+function syncProfileCache(fresh, complete) {
+  var u = me(), seen = {}, out = [];
+  fresh.forEach(function(p) { seen[p.id] = true; out.push(p); });
+  DB.custom.forEach(function(p) {
+    if (seen[p.id]) return;
+    if (u && p.ownerId === u.id) {
+      /* Keep an owner's private profile available for editing, but never let
+         an old cached copy masquerade as a currently published listing. */
+      p.hidden = true;
+      out.push(p);
+    } else if (!complete) {
+      out.push(p);
+    }
+  });
+  DB.custom = out;
+  persist("custom");
+}
+
+/* Check one profile against the database and fix the saved copy. Resolves true when it is public. */
+async function refreshAccompanist(id) {
+  var p = await fetchAccompanistById(id);
+  var u = me();
+  if (p) {
+    var i = DB.custom.findIndex(function(x) { return x.id === id; });
+    if (i >= 0) DB.custom[i] = p; else DB.custom.push(p);
+  } else if (u && u.id === id) {
+    /* A profile absent from the public query is unpublished or unavailable.
+       Retain it for its owner to edit, but hide it from public listings. */
+    var ownIndex = DB.custom.findIndex(function(x) { return x.id === id; });
+    if (ownIndex >= 0) DB.custom[ownIndex].hidden = true;
+  } else {
+    /* Remove cached copies when Supabase confirms the profile is not public. */
+    DB.custom = DB.custom.filter(function(x) { return x.id !== id; });
+  }
+  persist("custom");
+  return !!p;
+}
+
+/* For a page that shows one profile: is a database check still needed before drawing it? */
+function needsProfileCheck(id) { return remoteLive() && !PROFILE_CHECKED[id]; }
+function checkProfile(id) {
+  return refreshAccompanist(id)
+    .catch(function(e) {
+      console.error("Could not check the accompanist profile:", e);
+      /* If verification fails, fail closed for visitors: do not display an old
+         cached profile. The signed-in owner may retain their copy for editing. */
+      var u = me();
+      if (!(u && u.id === id)) {
+        DB.custom = DB.custom.filter(function(p) { return p.id !== id; });
+        persist("custom");
+      }
+    })
+    .then(function() { PROFILE_CHECKED[id] = true; rerender(); });
+}
+function profileLoadingShell(title) {
+  return { title: title, html: '<div class="wrap page"><div class="empty"><h3>Loading…</h3><p>One moment.</p></div></div>' };
+}
 
 /* ---------- shared UI pieces ---------- */
 function avatar(p,cls){
@@ -382,11 +547,11 @@ var HEADER_HTML=
   '</div></div></header>';
 var FOOTER_HTML=
 '<footer><div class="wrap"><div class="fcols">'+
-  '<div><b style="font-family:var(--serif);font-size:22px;color:var(--ink)">Accord</b><p style="margin-top:8px;max-width:32ch">Find, evaluate and book a collaborative pianist. Prototype with sample profiles.</p></div>'+
+  '<div><b style="font-family:var(--serif);font-size:22px;color:var(--ink)">Accord</b><p style="margin-top:8px;max-width:32ch">Find, evaluate and book a collaborative pianist in Southern California.</p></div>'+
   '<div><h4>Musicians</h4><a href="find.html">Find an accompanist</a><a href="how-it-works.html">How it works</a><a href="saved.html">Your shortlist</a><a href="bookings.html">My bookings</a></div>'+
   '<div><h4>Accompanists</h4><a href="become-accompanist.html">Why list on Accord</a><a href="signup.html?role=pianist">Create a profile</a><a href="my-profile.html">My profile</a></div>'+
-  '<div><h4>Support</h4><a href="help.html">Help center</a><a href="help.html#policies">Policies</a><a href="login.html">Log in</a><a href="signup.html">Sign up</a></div>'+
-'</div><p class="fine">Names, reviews and rates of sample accompanists are fictional. Accounts and data are stored in this browser only. Emails are simulated.</p></div></footer>';
+  '<div><h4>Support</h4><a href="help.html">Help center</a><a href="help.html#cancellations">Policies</a><a href="login.html">Log in</a><a href="signup.html">Sign up</a></div>'+
+'</div><p class="fine">© '+new Date().getFullYear()+' Accord</p></div></footer>';
 
 function renderHeader(){
   var u=me();
@@ -471,8 +636,8 @@ function bookingSummary(b){
 /* Notify the other party in a booking. fromRole is who did the action. */
 function notifyOther(b,fromRole,subject,body){
   var link=bookingUrl(b.id);
-  if(fromRole==="pianist"){var m=userById(b.fromId);notify(m?m.id:null,m?m.email:b.fromEmail,subject,body,link)}
-  else{var o=b.ownerId?userById(b.ownerId):null;notify(o?o.id:null,o?o.email:"(sample accompanist)",subject,body,link)}
+  if(fromRole==="pianist"){var m=userById(b.fromId);notify(b.fromId||null,m?m.email:b.fromEmail,subject,body,link)}
+  else{var o=b.ownerId?userById(b.ownerId):null;notify(b.ownerId||null,o?o.email:"",subject,body,link)}
 }
 
 /* ---------- FAQ (used by how-it-works and help) ---------- */
