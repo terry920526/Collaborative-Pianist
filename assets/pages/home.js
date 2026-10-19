@@ -155,7 +155,7 @@ async function loadHomeAccompanists() {
     var result = await supabaseClient
       .from("profiles")
       .select(
-        "id, full_name, role, city, state, bio, " +
+        "id, first_name, last_name, role, city, state, bio, " +
         "pianist_profiles!inner(" +
           "hourly_rate, years_experience, instruments, " +
           "specialties, available_for_hire, is_published, created_at" +
@@ -204,7 +204,9 @@ async function loadHomeAccompanists() {
         id: row.id,
         ownerId: row.id,
 
-        name: row.full_name || "Accompanist",
+        name: [row.first_name, row.last_name]
+          .filter(Boolean)
+          .join(" ") || "Accompanist",
         city: row.city || "Location not listed",
         state: row.state || "",
         bio: row.bio || "Collaborative pianist available for bookings.",
