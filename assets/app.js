@@ -924,8 +924,6 @@ if (password.length < 8) {
 if (password !== f.elements.sc.value) {
   return fail(f, "Your passwords do not match.");
 }
-    return fail(f, "The account service could not load. Please refresh the page and try again.");
-  }
 
   authBusy(f, true, "Creating account…");
   try {
