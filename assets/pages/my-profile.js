@@ -189,6 +189,7 @@ FORMS.profile = async function(f) {
   var lowestRate = Math.min.apply(null, rates);
 
   var details = {
+    display_name: profile.name,
     level: profile.level,
     zip: profile.zip,
     services: profile.services,
@@ -214,32 +215,31 @@ FORMS.profile = async function(f) {
     var selectedRole = u.role === "both" ? "both" : "pianist";
 
     // Save the user's basic public profile.
-    var mainResult = await supabaseClient
-      .from("profiles")
-      .update({
-        full_name: name,
-        role: selectedRole,
-        city: city,
-        bio: bio,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", u.id)
-      .select("id")
-      .maybeSingle();
+var mainResult = await supabaseClient
+  .from("profiles")
+  .update({
+    role: selectedRole,
+    city: city,
+    bio: bio,
+    updated_at: new Date().toISOString()
+  })
+  .eq("id", u.id)
+  .select("id")
+  .maybeSingle();
 
     if (mainResult.error) throw mainResult.error;
 
     // Recover gracefully if the main profile row does not exist.
-    if (!mainResult.data) {
-      var insertResult = await supabaseClient
-        .from("profiles")
-        .insert({
-          id: u.id,
-          full_name: name,
-          role: selectedRole,
-          city: city,
-          bio: bio
-        });
+var insertResult = await supabaseClient
+  .from("profiles")
+  .insert({
+    id: u.id,
+    first_name: u.first_name || "",
+    last_name: u.last_name || "",
+    role: selectedRole,
+    city: city,
+    bio: bio
+  });
 
       if (insertResult.error) throw insertResult.error;
     }
@@ -324,7 +324,7 @@ async function loadRemoteMyProfile() {
 
     var profileResult = await supabaseClient
       .from("profiles")
-      .select("id, full_name, role, city, bio")
+      .select("id, first_name, last_name, role, city, bio")
       .eq("id", u.id)
       .maybeSingle();
 
@@ -350,7 +350,10 @@ async function loadRemoteMyProfile() {
     var profile = {
       id: u.id,
       ownerId: u.id,
-      name: basic.full_name || u.name || "",
+      name: d.display_name ||
+        [basic.first_name, basic.last_name].filter(Boolean).join(" ") ||
+  u.name ||
+  "",
       city: basic.city || "",
       zip: d.zip || "",
       level: d.level || "Emerging professional",
