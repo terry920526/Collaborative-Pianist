@@ -697,8 +697,10 @@ function authDialog() {
           '<label class="role"><input type="radio" name="role" value="pianist">' +
             '<span><b>Accompanist</b><small>I am an accompanist</small></span></label>' +
         '</div>' +
-        '<div class="field"><label for="sn">Your name</label>' +
-          '<input id="sn" name="sn" maxlength="80" autocomplete="name"></div>' +
+        '<div class="field"><label for="firstName">First name</label>' +
+          '<input id="firstName" name="firstName" maxlength="80" autocomplete="given-name" required></div>' +
+        '<div class="field"><label for="lastName">Last name</label>' +
+          '<input id="lastName" name="lastName" maxlength="80" autocomplete="family-name" required></div>' +
         '<div class="field"><label for="se">Email address</label>' +
           '<input id="se" name="se" type="email" autocomplete="email"></div>' +
         '<div class="field"><label for="sp">Password</label>' +
@@ -872,13 +874,15 @@ FORMS.login = async function (f) {
 
 /* ---------- Create account ---------- */
 FORMS.signup = async function (f) {
-  var name = f.elements.sn.value.trim();
+  var firstName = f.elements.firstName.value.trim();
+  var lastName = f.elements.lastName.value.trim();
   var email = f.elements.se.value.trim().toLowerCase();
   var password = f.elements.sp.value;
   var roleInput = f.querySelector('input[name="role"]:checked');
   var role = roleInput && roleInput.value === "pianist" ? "pianist" : "musician";
 
-  if (!name) return fail(f, "Please enter your name.");
+  if (!firstName) return fail(f, "Please enter your first name.");
+  if (!lastName) return fail(f, "Please enter your last name.");
   if (!/^\S+@\S+\.\S+$/.test(email)) return fail(f, "Please enter a valid email address.");
   if (password.length < 8) return fail(f, "Your password must contain at least 8 characters.");
   if (password !== f.elements.sc.value) return fail(f, "Your passwords do not match.");
@@ -892,7 +896,7 @@ FORMS.signup = async function (f) {
       email: email,
       password: password,
       options: {
-        data: { full_name: name, role: role },
+        data: { first_name: firstName, last_name: lastName, role: role},
         emailRedirectTo: location.origin + location.pathname.replace(/[^\/]*$/, "") + "index.html"
       }
     });
@@ -910,7 +914,7 @@ FORMS.signup = async function (f) {
       var next = safeNext(AUTH_OPTS.next);
       f.reset();
       closeAuth();
-      toast("Welcome to Accord, " + name.split(" ")[0]);
+      toast("Welcome to Accord, " + firstName);
       if (role === "pianist") go("my-profile.html");
       else if (next) go(next);
       else rerender();
