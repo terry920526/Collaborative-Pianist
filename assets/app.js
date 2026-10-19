@@ -917,7 +917,7 @@ if (!/^\S+@\S+\.\S+$/.test(email)) {
 
 // Validate password length.
 if (password.length < 8) {
-  return fail(f, "Your password must contain at least 8 characters, at least one uppercase letters, at least one lowercase letter, and at least one number.");
+  return fail(f, "Your password must contain at least 8 characters.");
 }
 
 // Validate password confirmation.
