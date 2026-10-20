@@ -229,21 +229,40 @@ var mainResult = await supabaseClient
 
     if (mainResult.error) throw mainResult.error;
 
-    // Recover gracefully if the main profile row does not exist.
-var insertResult = await supabaseClient
+  // Save the user's basic public profile.
+var mainResult = await supabaseClient
   .from("profiles")
-  .insert({
-    id: u.id,
-    first_name: u.first_name || "",
-    last_name: u.last_name || "",
+  .update({
     role: selectedRole,
     city: city,
-    bio: bio
-  });
+    bio: bio,
+    updated_at: new Date().toISOString()
+  })
+  .eq("id", u.id)
+  .select("id")
+  .maybeSingle();
 
-      if (insertResult.error) throw insertResult.error;
-    }
+if (mainResult.error) {
+  throw mainResult.error;
+}
 
+// Insert a record only if the update found no existing profile.
+if (!mainResult.data) {
+  var insertResult = await supabaseClient
+    .from("profiles")
+    .insert({
+      id: u.id,
+      first_name: u.first_name || "",
+      last_name: u.last_name || "",
+      role: selectedRole,
+      city: city,
+      bio: bio
+    });
+
+  if (insertResult.error) {
+    throw insertResult.error;
+  }
+}
     // Save the accompanist's professional information.
     var pianistResult = await supabaseClient
       .from("pianist_profiles")
