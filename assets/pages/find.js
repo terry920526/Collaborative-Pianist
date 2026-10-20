@@ -109,7 +109,7 @@ async function loadRemoteAccompanists() {
     var result = await supabaseClient
       .from("profiles")
       .select(
-        "id, full_name, role, city, bio, " +
+        "id, first_name, last_name, role, city, bio, " +
         "pianist_profiles!inner(" +
           "hourly_rate, years_experience, instruments, " +
           "specialties, available_for_hire, is_published, " +
