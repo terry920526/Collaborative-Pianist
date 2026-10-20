@@ -149,7 +149,9 @@ async function loadRemoteAccompanists() {
       var profile = {
         id: row.id,
         ownerId: row.id,
-        name: row.full_name || "Accompanist",
+        name: [row.first_name, row.last_name]
+           .filter(Boolean)
+           .join(" ") || "Accompanist",
         city: city,
         lat: place ? place.lat : null,
         lng: place ? place.lng : null,
