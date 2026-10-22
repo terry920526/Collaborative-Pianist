@@ -3,7 +3,7 @@ var PHOTO="";
 function viewMyProfile(){
   var g=guard();if(g)return g;
   var u=me(),existing=myProfile();
-  var p=existing||{name:u.name,city:"",zip:"",level:"Emerging professional",exp:3,specialties:[],inst:[],purposes:[],services:{"Rehearsal":60},travelFee:0,travelRadius:15,studio:true,languages:["English"],education:"",bio:"",rep:[],avail:{},videos:[],photo:"",hidden:false};
+  var p=existing||{name:u.name,city:"",state:"",zip:"",level:"Emerging professional",exp:3,specialties:[],inst:[],purposes:[],services:{"Rehearsal":60},travelFee:0,travelRadius:15,studio:true,languages:["English"],education:"",bio:"",rep:[],avail:{},videos:[],photo:"",hidden:false};
   PHOTO=p.photo||"";
   var fields=[p.city,p.photo,(p.bio||"").length>=80,p.rep.length>=4,p.inst.length,p.specialties.length,p.purposes.length,Object.keys(p.services).length,p.education,p.videos.length,Object.keys(p.avail||{}).length,p.languages.length];
   var pct=Math.round(fields.filter(Boolean).length/fields.length*100);
@@ -15,7 +15,7 @@ function viewMyProfile(){
     '<div class="fsec"><h3>Photo and basics</h3><div class="photo-up"><div id="photoPrev">'+avatar(Object.assign({},p,{id:p.id||"new",photo:PHOTO}),"xl")+'</div><div><label class="btn small" for="photo" style="cursor:pointer">Upload headshot</label><input id="photo" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px"> <button class="linkbtn" type="button" data-action="photo-clear">Remove</button><div class="hint">A clear, professional headshot. It is resized to fit.</div></div></div>'+
     '<div class="two" style="margin-top:14px"><div class="field"><label for="pn">Display name</label><input id="pn" name="pn" maxlength="40" value="'+esc(p.name)+'"></div><div class="field"><label for="pl">Experience level</label><select id="pl" name="pl">'+opts(LEVELS,p.level)+'</select></div></div>'+
     '<div class="two" style="margin-top:12px"><div class="field"><label for="py">Years of experience</label><input id="py" name="py" type="number" min="0" max="70" value="'+p.exp+'"></div><div></div></div></div>'+
-    '<div class="fsec"><h3>Location and service area</h3><div class="two"><div class="field"><label for="pc">Base city</label><select id="pc" name="pc">'+opts(PLACES.map(function(x){return x.city}),p.city,"Choose a city")+'</select></div><div class="field"><label for="pz">ZIP code <small style="display:inline">(optional)</small></label><input id="pz" name="pz" maxlength="5" inputmode="numeric" value="'+esc(p.zip||"")+'"></div></div>'+
+    '<div class="fsec"><h3>Location and service area</h3><p class="hint">Accord is open nationwide. Enter your real base city and state so musicians can find you across the United States.</p><div class="two"><div class="field"><label for="pc">Base city</label><input id="pc" name="pc" maxlength="80" placeholder="e.g. Austin" value="'+esc(p.city||"")+'"></div><div class="field"><label for="pst">State</label><select id="pst" name="pst">'+opts(STATES,p.state||"","Choose a state")+'</select></div></div><div class="field" style="margin-top:12px"><label for="pz">ZIP code <small style="display:inline">(optional)</small></label><input id="pz" name="pz" maxlength="5" inputmode="numeric" value="'+esc(p.zip||"")+'"></div>'+
     '<div class="checks" style="margin-top:12px"><label><input type="checkbox" name="studio"'+(p.studio?' checked':'')+'> I teach at a studio or home</label></div>'+
     '<div class="two" style="margin-top:12px"><div class="field"><label for="pr">I will travel up to (miles)</label><input id="pr" name="pr" type="number" min="0" max="100" value="'+p.travelRadius+'"><small>Enter 0 if you do not travel.</small></div><div class="field"><label for="pt">Travel fee ($)</label><input id="pt" name="pt" type="number" min="0" max="200" value="'+p.travelFee+'"></div></div></div>'+
     '<div class="fsec"><h3>Services and rates</h3><p class="hint" style="margin-bottom:10px">Select the services you offer and set your hourly rate for each.</p>'+svc+'</div>'+
@@ -68,6 +68,7 @@ FORMS.profile = async function(f) {
 
   var name = g("pn");
   var city = g("pc");
+  var state = g("pst");
   var zip = g("pz");
   var bio = g("pb");
 
@@ -95,7 +96,8 @@ FORMS.profile = async function(f) {
   var fee = +g("pt") || 0;
 
   if (!name) return fail(f, "Enter the name musicians will see.");
-  if (!city) return fail(f, "Choose your base city.");
+  if (!city) return fail(f, "Enter your base city.");
+  if (!state) return fail(f, "Choose your state.");
 
   if (zip && !/^\d{5}$/.test(zip)) {
     return fail(f, "Enter a 5-digit ZIP code, or leave it blank.");
@@ -158,6 +160,7 @@ FORMS.profile = async function(f) {
     ownerId: u.id,
     name: name,
     city: city,
+    state: state,
     zip: zip,
     lat: place ? place.lat : null,
     lng: place ? place.lng : null,
@@ -191,6 +194,8 @@ FORMS.profile = async function(f) {
   var details = {
     display_name: profile.name,
     level: profile.level,
+    state: profile.state,
+    country: "United States",
     zip: profile.zip,
     services: profile.services,
     purposes: profile.purposes,
@@ -374,7 +379,10 @@ async function loadRemoteMyProfile() {
   u.name ||
   "",
       city: basic.city || "",
+      state: d.state || (placeOf(basic.city || "") || {}).state || "",
       zip: d.zip || "",
+      lat: (placeOf(basic.city || "") || {}).lat || null,
+      lng: (placeOf(basic.city || "") || {}).lng || null,
       level: d.level || "Emerging professional",
       exp: pp.years_experience || 0,
       specialties: pp.specialties || [],
