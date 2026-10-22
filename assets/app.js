@@ -121,15 +121,26 @@ function safeNext(n){return /^[\w.-]+\.html(\?[\w%&=.\-]*)?$/.test(n||"")?n:""}
 function today(){return iso(new Date())}
 
 /* ---------- location ---------- */
-function placeOf(city){for(var i=0;i<PLACES.length;i++)if(PLACES[i].city.toLowerCase()===String(city).toLowerCase())return PLACES[i];return null}
+function placeOf(city){
+  for(var i=0;i<PLACES.length;i++)if(PLACES[i].city.toLowerCase()===String(city).trim().toLowerCase())return PLACES[i];
+  return null;
+}
 function resolveLocation(text){
   text=String(text||"").trim();if(!text)return null;
-  if(/^\d{5}$/.test(text)){
-    for(var i=0;i<PLACES.length;i++)if(PLACES[i].zips.indexOf(text)>=0)return {name:PLACES[i].city+" "+text,lat:PLACES[i].lat,lng:PLACES[i].lng};
+  if(/^\\d{5}$/.test(text)){
+    for(var i=0;i<PLACES.length;i++)if((PLACES[i].zips||[]).indexOf(text)>=0)return {name:PLACES[i].city+" "+text,lat:PLACES[i].lat,lng:PLACES[i].lng,state:PLACES[i].state||""};
     return null;
   }
-  var c=text.split(",")[0].trim().toLowerCase(),pl=placeOf(c);
-  return pl?{name:pl.city,lat:pl.lat,lng:pl.lng}:null;
+  var parts=text.split(","),c=parts[0].trim().toLowerCase(),pl=placeOf(c);
+  if(!pl && parts.length===1){
+    for(var j=0;j<PLACES.length;j++)if(PLACES[j].city.toLowerCase()===c){pl=PLACES[j];break;}
+  }
+  if(!pl)return null;
+  if(parts.length>1){
+    var wanted=parts.slice(1).join(",").trim().toLowerCase();
+    if(wanted && pl.state && pl.state.toLowerCase().indexOf(wanted)<0)return null;
+  }
+  return {name:pl.city+(pl.state?", "+pl.state:""),lat:pl.lat,lng:pl.lng,state:pl.state||""};
 }
 function miles(a,b){
   var R=3958.8,rad=Math.PI/180,dLat=(b.lat-a.lat)*rad,dLng=(b.lng-a.lng)*rad;
@@ -512,7 +523,7 @@ function cardHTML(p,q,from){
   var tags=p.inst.slice(0,4).map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join("")+(p.inst.length>4?'<span class="tag">+'+(p.inst.length-4)+'</span>':'');
   var match="";
   if(w.length){var hit=p.rep.filter(function(r){var l=r.toLowerCase();return w.some(function(x){return l.indexOf(x)>=0})})[0];if(hit)match='<p class="match">Knows: '+hl(hit,w)+'</p>'}
-  var where=esc(p.city)+(from?(Math.round(miles(from,p))<1?' · <b>same city</b>':' · <b>'+Math.round(miles(from,p))+' mi</b> away'):'');
+  var where=esc(p.city)+(p.state?", "+esc(p.state):"")+(from?(Math.round(miles(from,p))<1?' · <b>same city</b>':' · <b>'+Math.round(miles(from,p))+' mi</b> away'):'');
   return '<article class="card">'+
     '<div class="card-top">'+avatar(p)+
       '<div><h3><a href="'+pianistUrl(p.id)+'">'+esc(p.name)+'</a></h3><div class="meta">'+where+'</div><div class="meta">'+ratingHTML(p)+'</div><div class="meta">'+esc(p.level)+(p.exp?' · '+p.exp+' yrs':'')+'</div></div>'+
