@@ -705,6 +705,7 @@ function authDialog() {
           '<input id="lp" name="lp" type="password" autocomplete="current-password"></div>' +
         '<p class="err" data-err role="alert" hidden></p>' +
         '<button class="btn primary block" type="submit">Log in</button>' +
+        '<p class="note auth-switch"><a class="linkbtn" href="forgot-password.html">Forgot your password?</a></p>' +
         '<p class="note auth-switch">New to Accord? <button type="button" class="linkbtn" data-auth-mode="signup">Create an account</button></p>' +
       '</form>' +
 
