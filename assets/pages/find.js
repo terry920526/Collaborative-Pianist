@@ -1,230 +1,82 @@
-/* Page: find.html – location, radius, instrument, specialty, price, availability search. */
-var F={q:"",loc:"",mode:"anywhere",state:"",r:25,inst:"",spec:"",purpose:"",level:"",price:"",lang:"",date:"",slot:"",sort:"relevance"};
-var FROM=null,LOCBAD=false;
-function parseF(p){
-  F={q:p.get("q")||"",loc:p.get("loc")||"",mode:p.get("mode")||"anywhere",state:p.get("state")||"",r:+p.get("r")||25,inst:p.get("inst")||"",spec:p.get("spec")||"",purpose:p.get("purpose")||"",
-     level:p.get("level")||"",price:p.get("price")||"",lang:p.get("lang")||"",date:p.get("date")||"",slot:p.get("slot")||"",sort:p.get("sort")||"relevance"};
-}
-function resolveF(){FROM=resolveLocation(F.loc);LOCBAD=F.mode==="distance"&&!!F.loc&&!FROM}
-function syncUrl(){
-  var p=[];["q","loc","mode","state","inst","spec","purpose","level","price","lang","date","slot"].forEach(function(k){if(F[k])p.push(k+"="+encodeURIComponent(F[k]))});
-  if(F.loc&&F.mode==="distance"&&F.r!==25)p.push("r="+F.r);if(F.sort!=="relevance")p.push("sort="+F.sort);
-  try{history.replaceState(null,"",location.pathname+(p.length?"?"+p.join("&"):""))}catch(e){}
-}
-function fMatches(p){
-  if(F.state && String(p.state||"").toLowerCase()!==F.state.toLowerCase())return false;
-  if(F.mode==="city" && F.loc){
-    var locParts=F.loc.toLowerCase().split(",").map(function(x){return x.trim()}).filter(Boolean);
-    var stateCodes={"al":"alabama","ak":"alaska","az":"arizona","ar":"arkansas","ca":"california","co":"colorado","ct":"connecticut","de":"delaware","dc":"district of columbia","fl":"florida","ga":"georgia","hi":"hawaii","id":"idaho","il":"illinois","in":"indiana","ia":"iowa","ks":"kansas","ky":"kentucky","la":"louisiana","me":"maine","md":"maryland","ma":"massachusetts","mi":"michigan","mn":"minnesota","ms":"mississippi","mo":"missouri","mt":"montana","ne":"nebraska","nv":"nevada","nh":"new hampshire","nj":"new jersey","nm":"new mexico","ny":"new york","nc":"north carolina","nd":"north dakota","oh":"ohio","ok":"oklahoma","or":"oregon","pa":"pennsylvania","ri":"rhode island","sc":"south carolina","sd":"south dakota","tn":"tennessee","tx":"texas","ut":"utah","vt":"vermont","va":"virginia","wa":"washington","wv":"west virginia","wi":"wisconsin","wy":"wyoming"};
-    var cityText=String(p.city||"").toLowerCase(),stateText=String(p.state||"").toLowerCase(),zipText=String(p.zip||"");
-    if(/^\\d{5}$/.test(F.loc.trim())){
-      if(zipText!==F.loc.trim())return false;
-    } else if(locParts.length>1){
-      var wantedState=stateCodes[locParts.slice(1).join(" ")]||locParts.slice(1).join(" ");
-      if(cityText.indexOf(locParts[0])<0 || stateText.indexOf(wantedState)<0)return false;
-    } else {
-      var locText=locParts[0];
-      var searchable=[cityText,stateText,zipText].join(" ");
-      if(searchable.indexOf(locText)<0)return false;
+/* Page: find.html – simplified search with a fixed 50-mile location radius. */
+var F={q:"",loc:"",inst:"",spec:"",purpose:"",lang:""};
+var FROM=null,LOCBAD=false,ZIP_QUERY="",ZIP_RESULT=null;
+function parseF(p){F={q:p.get("q")||"",loc:p.get("loc")||"",inst:p.get("inst")||"",spec:p.get("spec")||"",purpose:p.get("purpose")||"",lang:p.get("lang")||""};}
+function resolveF(){
+  var raw=String(F.loc||"").trim();
+  FROM=resolveLocation(raw);LOCBAD=!!raw&&!FROM;
+  if(/^\d{5}$/.test(raw)){
+    if(ZIP_RESULT&&ZIP_RESULT.zip===raw){FROM=ZIP_RESULT.location;LOCBAD=false;return;}
+    if(FROM){ZIP_RESULT=null;}
+    if(!FROM){LOCBAD=false;
+    if(ZIP_QUERY!==raw){
+      ZIP_QUERY=raw;
+      fetch("https://api.zippopotam.us/us/"+raw).then(function(res){if(!res.ok)throw new Error("ZIP code not found");return res.json()}).then(function(data){
+        if(ZIP_QUERY!==raw||String(F.loc||"").trim()!==raw)return;
+        var place=data.places&&data.places[0];if(!place)throw new Error("ZIP code not found");
+        var lat=Number(place.latitude),lng=Number(place.longitude);
+        if(!isFinite(lat)||!isFinite(lng))throw new Error("ZIP code coordinates unavailable");
+        FROM={name:place["place name"]+", "+place["state abbreviation"]+" "+raw,lat:lat,lng:lng};ZIP_RESULT={zip:raw,location:FROM};LOCBAD=false;renderResults();
+      }).catch(function(){if(ZIP_QUERY===raw&&String(F.loc||"").trim()===raw){FROM=null;LOCBAD=true;renderResults()}});
     }
-  }
-  if(F.mode==="distance" && F.loc){
-    if(!FROM)return false;
-    if(p.lat==null||p.lng==null||miles(FROM,p)>F.r)return false;
-  }
+    }
+  } else {ZIP_QUERY="";ZIP_RESULT=null;}
+}
+function syncUrl(){var p=[];["q","loc","inst","spec","purpose","lang"].forEach(function(k){if(F[k])p.push(k+"="+encodeURIComponent(F[k]))});try{history.replaceState(null,"",location.pathname+(p.length?"?"+p.join("&"):""))}catch(e){}}
+function fMatches(p){
+  if(F.loc){if(!FROM||p.lat==null||p.lng==null||!isFinite(Number(p.lat))||!isFinite(Number(p.lng))||miles(FROM,p)>50)return false;}
   if(F.inst&&p.inst.indexOf(F.inst)<0)return false;
   if(F.spec&&p.specialties.indexOf(F.spec)<0)return false;
   if(F.purpose&&p.purposes.indexOf(F.purpose)<0)return false;
-  if(F.level&&p.level!==F.level)return false;
   if(F.lang&&p.languages.indexOf(F.lang)<0)return false;
-  var m=minRate(p);
-  if(F.price==="lt50"&&!(m<50))return false;
-  if(F.price==="50-100"&&!(m>=50&&m<=100))return false;
-  if(F.price==="100+"&&!(m>=100))return false;
-  if(F.date){var s=slotsFor(p,F.date).open;if(!s.length||(F.slot&&s.indexOf(F.slot)<0))return false}
-  if(F.q){
-    var h=[p.name,p.city,p.state,p.bio,p.rep.join(" "),p.inst.join(" "),p.specialties.join(" "),p.education].join(" ").toLowerCase(),w=words(F.q);
-    for(var i=0;i<w.length;i++)if(h.indexOf(w[i])<0)return false;
-  }
+  if(F.q){var h=[p.name,p.city,p.state,p.bio,p.rep.join(" "),p.inst.join(" "),p.specialties.join(" "),p.education].join(" ").toLowerCase(),w=words(F.q);for(var i=0;i<w.length;i++)if(h.indexOf(w[i])<0)return false;}
   return true;
 }
-function fList(){
-  var r=listed().filter(fMatches);
-  function d(p){return FROM&&p.lat!=null&&p.lng!=null?miles(FROM,p):999999}
-  r.sort(function(a,b){
-    var sa=stats(a),sb=stats(b);
-    if(F.sort==="distance"&&FROM)return d(a)-d(b);
-    if(F.sort==="price")return minRate(a)-minRate(b);
-    if(F.sort==="rating")return sb.rating-sa.rating||sb.reviews-sa.reviews;
-    if(F.sort==="experience")return b.exp-a.exp;
-    if(F.sort==="availability")return nextOpen(a)-nextOpen(b);
-    return (score(b)-(FROM?d(b)/15:0))-(score(a)-(FROM?d(a)/15:0));
-  });
-  return r;
-}
+function fList(){var r=listed().filter(fMatches);r.sort(function(a,b){var da=FROM&&a.lat!=null&&a.lng!=null?miles(FROM,a):0,db=FROM&&b.lat!=null&&b.lng!=null?miles(FROM,b):0;return (score(b)-(FROM?db/15:0))-(score(a)-(FROM?da/15:0));});return r;}
 function viewFind(c){
   parseF(c.params);resolveF();
-  var sorts=[["relevance","Relevance (recommended)"],["distance","Distance"],["price","Price: low to high"],["rating","Rating"],["experience","Experience"],["availability","Soonest availability"]];
-  var html='<div class="wrap page"><div class="page-head"><h1>Find an accompanist</h1><p>Search by location, instrument, specialty, price and the pieces they already know. Results are ranked by relevance, never by paid placement.</p></div>'+
+  var html='<div class="wrap page"><div class="page-head"><h1>Find an accompanist</h1><p>Discover collaborative pianists near you. Enter a city or ZIP code to find accompanists within 50 miles, or browse the nationwide directory.</p></div>'+ 
   '<div class="filters" role="search">'+
     '<div class="f-q"><label for="fq">Search names, pieces or composers</label><input id="fq" type="search" placeholder="e.g. Brahms Cello Sonata, Schubert" value="'+esc(F.q)+'"></div>'+
-    '<div><label for="fmode">Location search</label><select id="fmode">'+opts([["anywhere","Anywhere in the United States"],["city","City or ZIP match"],["distance","Within a distance"]],F.mode)+'</select></div>'+
-    '<div><label for="floc">City or ZIP code</label><input id="floc" type="search" placeholder="e.g. Austin, TX or 78701" value="'+esc(F.loc)+'"><div id="locmsg"></div></div>'+
-    '<div><label for="fstate">State</label><select id="fstate">'+opts(STATES,F.state,"All states")+'</select></div>'+
-    '<div><label for="fr">Distance</label><select id="fr">'+opts(RADII.map(function(r){return [r,"Within "+r+" miles"]}),F.r)+'</select></div>'+
+    '<div><label for="floc">City or ZIP code</label><input id="floc" type="search" placeholder="e.g. Los Angeles or 90024" value="'+esc(F.loc)+'" autocomplete="postal-code"><div id="locmsg"></div></div>'+
     '<div><label for="fi">Instrument or voice</label><select id="fi">'+opts(INSTRUMENTS,F.inst,"Any")+'</select></div>'+
     '<div><label for="fsp">Musical specialty</label><select id="fsp">'+opts(SPECIALTIES,F.spec,"Any")+'</select></div>'+
-    '<div><label for="fle">Experience</label><select id="fle">'+opts(LEVELS,F.level,"Any")+'</select></div>'+
-    '<div><label for="fpr">Price (per hour)</label><select id="fpr">'+opts([["lt50","Under $50"],["50-100","$50 to $100"],["100+","$100 and up"]],F.price,"Any")+'</select></div>'+
-    '<div><label for="fla">Language</label><select id="fla">'+opts(LANGUAGES,F.lang,"Any")+'</select></div>'+
-    '<div><label for="fd">Available on</label><input id="fd" type="date" min="'+today()+'" value="'+esc(F.date)+'"></div>'+
-    '<div><label for="fsl">Time of day</label><select id="fsl">'+opts(SLOTS,F.slot,"Any time")+'</select></div>'+
-    '<div><label for="fs">Sort by</label><select id="fs">'+opts(sorts,F.sort)+'</select></div>'+
-  '</div>'+
-  '<div class="pills" id="pills" role="group" aria-label="Purpose"></div><div class="active" id="active" aria-label="Active filters"></div><div class="count" id="count" aria-live="polite"></div><div class="grid" id="grid"></div></div>';
+    '<div><label for="fla">Language</label><select id="fla">'+opts(LANGUAGES,F.lang,"Any")+'</select></div>'+ 
+  '</div><div class="pills" id="pills" role="group" aria-label="Purpose"></div><div class="active" id="active" aria-label="Active filters"></div><div class="count" id="count" aria-live="polite"></div><div class="grid" id="grid"></div></div>';
   return {title:"Find an accompanist – Accord",html:html,after:renderResults};
 }
 function renderResults(){
   if(!$("#grid"))return;
-  resolveF();
-  var r=fList();
-  $("#pills").innerHTML=[["","Any purpose"]].concat(PURPOSES.map(function(p){return [p,p+"s".replace("Recordings","Recordings")]})).map(function(p,i){
-    var label=i===0?p[1]:({Audition:"Auditions",Competition:"Competitions",Recital:"Recitals",Rehearsal:"Rehearsals",Recording:"Recordings"})[p[0]];
-    return '<button class="pill" type="button" data-action="pill" data-v="'+p[0]+'" aria-pressed="'+(F.purpose===p[0])+'">'+label+'</button>'}).join("");
-  var lm=$("#locmsg");
-  lm.innerHTML=LOCBAD?'<div class="loc-msg">We could not calculate distance for that location. Try a supported major U.S. city, or switch to City or ZIP match.</div>':(F.mode==="anywhere"?'<div class="loc-ok">Searching the nationwide directory.</div>':(F.mode==="city"&&F.loc?'<div class="loc-ok">Matching city, state, or ZIP text in profiles.</div>':(FROM?'<div class="loc-ok">Showing within '+F.r+' miles of '+esc(FROM.name)+'</div>':'')));
-  var chips=[],L={q:"Search: "+F.q,loc:F.mode!=="anywhere"&&F.loc?F.loc+(F.mode==="distance"?" · "+F.r+" mi":""):"",state:F.state,inst:F.inst,spec:F.spec,purpose:F.purpose,level:F.level,price:({"lt50":"Under $50","50-100":"$50 to $100","100+":"$100 and up"})[F.price],lang:F.lang,date:F.date?fmtShort(F.date)+(F.slot?" · "+F.slot:""):""};
-  Object.keys(L).forEach(function(k){if(F[k]&&L[k])chips.push([k,L[k]])});
+  resolveF();var r=fList();
+  $("#pills").innerHTML=[["","Any purpose"]].concat(PURPOSES.map(function(p){return [p,p]})).map(function(p,i){var label=i===0?p[1]:({Audition:"Auditions",Competition:"Competitions",Recital:"Recitals",Rehearsal:"Rehearsals",Recording:"Recordings"})[p[0]];return '<button class="pill" type="button" data-action="pill" data-v="'+p[0]+'" aria-pressed="'+(F.purpose===p[0])+'">'+label+'</button>'}).join("");
+  var lm=$("#locmsg");if(lm){lm.innerHTML=LOCBAD?'<div class="loc-msg">We could not find that city or ZIP code. Try a major U.S. city or a valid 5-digit ZIP code.</div>':(F.loc?(FROM?'<div class="loc-ok">Showing accompanists within 50 miles of '+esc(FROM.name)+'</div>':'<div class="loc-ok">Looking up location…</div>'):'<div class="loc-ok">Browse all locations across the United States.</div>');}
+  var chips=[],L={q:"Search: "+F.q,loc:F.loc,inst:F.inst,spec:F.spec,purpose:F.purpose,lang:F.lang};Object.keys(L).forEach(function(k){if(F[k]&&L[k])chips.push([k,L[k]])});
   $("#active").innerHTML=chips.length?chips.map(function(x){return '<button class="fchip" type="button" data-action="clear" data-k="'+x[0]+'" aria-label="Remove filter: '+esc(x[1])+'">'+esc(x[1])+' <span aria-hidden="true">✕</span></button>'}).join("")+(chips.length>1?'<button class="linkbtn" type="button" data-action="clear" data-k="all">Clear all</button>':''):"";
-  var note=(F.sort==="distance"&&!FROM)?" (enter a city or ZIP to sort by distance)":"";
-  $("#count").textContent=r.length+(r.length===1?" accompanist":" accompanists")+" match your search"+note;
-  if(!r.length)$("#grid").innerHTML='<div class="empty"><h3>No accompanists match yet</h3><p>Try a different location, a wider distance, or fewer filters. Accord welcomes accompanists across the United States.</p><button class="btn" type="button" data-action="clear" data-k="all">Clear all filters</button></div>';
+  $("#count").textContent=r.length+(r.length===1?" accompanist":" accompanists")+(F.loc&&FROM?" within 50 miles":"")+" match your search";
+  if(!r.length){var msg=F.loc&&!FROM&&!LOCBAD?"Looking up your location…":"Try another city or ZIP code, or remove a filter.";$("#grid").innerHTML='<div class="empty"><h3>No accompanists match yet</h3><p>'+msg+'</p><button class="btn" type="button" data-action="clear" data-k="all">Clear all filters</button></div>';}
   else $("#grid").innerHTML=r.map(function(p){return cardHTML(p,F.q,FROM)}).join("");
   syncUrl();
 }
-function syncInputs(){
-  var m={fq:F.q,floc:F.loc,fmode:F.mode,fstate:F.state,fr:F.r,fi:F.inst,fsp:F.spec,fle:F.level,fpr:F.price,fla:F.lang,fd:F.date,fsl:F.slot,fs:F.sort};
-  Object.keys(m).forEach(function(id){var el=$("#"+id);if(el)el.value=m[id]});
-}
+function syncInputs(){var m={fq:F.q,floc:F.loc,fi:F.inst,fsp:F.spec,fla:F.lang};Object.keys(m).forEach(function(id){var el=$("#"+id);if(el)el.value=m[id]});}
 onSavedChange=renderResults;
 ACTIONS.pill=function(b){F.purpose=b.dataset.v;renderResults()};
-ACTIONS.clear=function(b){
-  var k=b.dataset.k;
-  if(k==="all")F={q:"",loc:"",mode:"anywhere",state:"",r:25,inst:"",spec:"",purpose:"",level:"",price:"",lang:"",date:"",slot:"",sort:"relevance"};
-  else if(k==="loc"){F.loc="";F.r=25;F.mode="anywhere"}else if(k==="date"){F.date="";F.slot=""}else F[k]="";
-  syncInputs();renderResults();
-};
-var MAPID={fq:"q",floc:"loc",fmode:"mode",fstate:"state",fr:"r",fi:"inst",fsp:"spec",fle:"level",fpr:"price",fla:"lang",fd:"date",fsl:"slot",fs:"sort"};
-function onField(e){var k=MAPID[e.target.id];if(!k)return;F[k]=k==="r"?+e.target.value:e.target.value.trim();if(k==="loc"&&F.loc&&F.mode==="anywhere")F.mode="city";if(k==="mode"&&F.mode==="anywhere"){F.loc="";F.r=25}renderResults();syncInputs()}
+ACTIONS.clear=function(b){var k=b.dataset.k;if(k==="all")F={q:"",loc:"",inst:"",spec:"",purpose:"",lang:""};else F[k]="";ZIP_QUERY="";ZIP_RESULT=null;FROM=null;syncInputs();renderResults()};
+var MAPID={fq:"q",floc:"loc",fi:"inst",fsp:"spec",fla:"lang"};
+var locTimer=null;
+function onField(e){var k=MAPID[e.target.id];if(!k)return;F[k]=e.target.value.trim();if(k==="loc"){if(locTimer)clearTimeout(locTimer);locTimer=setTimeout(function(){ZIP_QUERY="";ZIP_RESULT=null;resolveF();renderResults()},250);return;}renderResults()}
 document.addEventListener("input",function(e){if(e.target.id==="fq"||e.target.id==="floc")onField(e)});
-document.addEventListener("change",onField);
+document.addEventListener("change",function(e){if(e.target.id!=="fq"&&e.target.id!=="floc")onField(e)});
 mount(viewFind,"find");
-async function loadRemoteAccompanists() {
-  try {
+async function loadRemoteAccompanists(){
+  try{
     await AUTH_READY;
-
-    if (typeof supabaseClient === "undefined" || !supabaseClient) {
-      return;
-    }
-
-    var result = await supabaseClient
-      .from("profiles")
-      .select(
-        "id, first_name, last_name, role, city, bio, " +
-        "pianist_profiles!inner(" +
-          "hourly_rate, years_experience, instruments, " +
-          "specialties, available_for_hire, is_published, " +
-          "profile_details" +
-        ")"
-      )
-      .in("role", ["pianist", "both"])
-      .eq("pianist_profiles.is_published", true)
-      .eq("pianist_profiles.available_for_hire", true)
-      .gt("pianist_profiles.hourly_rate", 0);
-
-    if (result.error) throw result.error;
-
-    var rows = result.data || [];
-
-    rows.forEach(function(row) {
-      var pp = row.pianist_profiles;
-
-      if (Array.isArray(pp)) {
-        pp = pp[0];
-      }
-
-      if (!pp) return;
-
-      var details = pp.profile_details || {};
-      var city = row.city || "";
-      var state = details.state || "";
-      var zip = details.zip || "";
-      var place = placeOf(city);
-
-      var services = details.services || {};
-
-      if (!Object.keys(services).length && pp.hourly_rate != null) {
-        services = {
-          "Rehearsal": Number(pp.hourly_rate)
-        };
-      }
-
-      var profile = {
-        id: row.id,
-        ownerId: row.id,
-        name: [row.first_name, row.last_name]
-           .filter(Boolean)
-           .join(" ") || "Accompanist",
-        city: city,
-        state: state || (place ? place.state : ""),
-        zip: zip,
-        lat: place ? place.lat : null,
-        lng: place ? place.lng : null,
-        bio: row.bio || "",
-        level: details.level || "Accompanist",
-        exp: Number(pp.years_experience || 0),
-        inst: pp.instruments || [],
-        specialties: pp.specialties || [],
-        purposes: details.purposes || [],
-        services: services,
-        languages: details.languages || [],
-        education: details.education || "",
-        rep: details.repertoire || [],
-        avail: details.availability || {},
-        travelFee: Number(details.travelFee || 0),
-        travelRadius: Number(details.travelRadius || 0),
-        studio: !!details.studio,
-        photo: "",
-        sample: false,
-        hidden: false,
-        suspended: false,
-        rating: 0,
-        reviews: 0,
-        completed: 0
-      };
-
-      // Replace an existing cached copy of this same profile.
-      var index = DB.custom.findIndex(function(p) {
-        return p.id === profile.id;
-      });
-
-      if (index >= 0) {
-        DB.custom[index] = profile;
-      } else {
-        DB.custom.push(profile);
-      }
-    });
-
-    persist("custom");
-
-    // Refresh the current search results with the newly loaded profiles.
-    if (typeof renderResults === "function") {
-      renderResults();
-    }
-
-  } catch (error) {
-    console.error("Could not load accompanists from Supabase:", error);
-  }
+    if(typeof supabaseClient==="undefined"||!supabaseClient)return;
+    var result=await supabaseClient.from("profiles").select("id, first_name, last_name, role, city, state, bio, pianist_profiles!inner(hourly_rate, years_experience, instruments, specialties, available_for_hire, is_published, profile_details)").in("role",["pianist","both"]).eq("pianist_profiles.is_published",true).eq("pianist_profiles.available_for_hire",true).gt("pianist_profiles.hourly_rate",0);
+    if(result.error)throw result.error;
+    (result.data||[]).forEach(function(row){var pp=Array.isArray(row.pianist_profiles)?row.pianist_profiles[0]:row.pianist_profiles;if(!pp)return;var details=pp.profile_details||{},city=row.city||"",place=placeOf(city),services=details.services||{};if(!Object.keys(services).length&&pp.hourly_rate!=null)services={"Rehearsal":Number(pp.hourly_rate)};
+      var profile={id:row.id,ownerId:row.id,name:[row.first_name,row.last_name].filter(Boolean).join(" ")||"Accompanist",city:city,state:row.state||"",lat:place?place.lat:null,lng:place?place.lng:null,bio:row.bio||"",level:details.level||"Accompanist",exp:Number(pp.years_experience||0),inst:pp.instruments||[],specialties:pp.specialties||[],purposes:details.purposes||[],services:services,languages:details.languages||[],education:details.education||"",rep:details.repertoire||[],avail:details.availability||{},travelFee:Number(details.travelFee||0),travelRadius:Number(details.travelRadius||0),studio:!!details.studio,photo:"",sample:false,hidden:false,suspended:false,rating:0,reviews:0,completed:0};
+      var index=DB.custom.findIndex(function(p){return p.id===profile.id});if(index>=0)DB.custom[index]=profile;else DB.custom.push(profile);
+    });persist("custom");if(typeof renderResults==="function")renderResults();
+  }catch(error){console.error("Could not load accompanists from Supabase:",error)}
 }
-
 loadRemoteAccompanists();
