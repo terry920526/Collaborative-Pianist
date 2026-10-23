@@ -18,7 +18,7 @@ async function geocodeLocation(raw){
   var key=cacheKey(raw);if(LOCATION_CACHE[key])return LOCATION_CACHE[key];
   await AUTH_READY;
   if(typeof supabaseClient==="undefined"||!supabaseClient)throw new Error("Location service unavailable");
-  var result=await supabaseClient.functions.invoke("geocode-location",{body:{query:raw}});
+  var result=await supabaseClient.functions.invoke("clever-handler",{body:{query:raw}});
   if(result.error){
     var message=result.error.message||"Location lookup failed";
     try{
