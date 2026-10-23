@@ -54,7 +54,7 @@ async function geocodeAccompanistLocation(city,state,zip){
   if(cityState&&queries.indexOf(cityState)<0)queries.push(cityState);
   var lastError="The location service did not return coordinates.";
   for(var i=0;i<queries.length;i++){
-    var result=await supabaseClient.functions.invoke("geocode-location",{body:{query:queries[i]}});
+    var result=await supabaseClient.functions.invoke("clever-handler",{body:{query:queries[i]}});
     if(result.error){
       lastError=result.error.message||"Location lookup failed";
       try{
