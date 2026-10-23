@@ -15,7 +15,7 @@ function viewMyProfile(){
     '<div class="fsec"><h3>Photo and basics</h3><div class="photo-up"><div id="photoPrev">'+avatar(Object.assign({},p,{id:p.id||"new",photo:PHOTO}),"xl")+'</div><div><label class="btn small" for="photo" style="cursor:pointer">Upload headshot</label><input id="photo" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px"> <button class="linkbtn" type="button" data-action="photo-clear">Remove</button><div class="hint">A clear, professional headshot. It is resized to fit.</div></div></div>'+
     '<div class="two" style="margin-top:14px"><div class="field"><label for="pn">Display name</label><input id="pn" name="pn" maxlength="40" value="'+esc(p.name)+'"></div><div class="field"><label for="pl">Experience level</label><select id="pl" name="pl">'+opts(LEVELS,p.level)+'</select></div></div>'+
     '<div class="two" style="margin-top:12px"><div class="field"><label for="py">Years of experience</label><input id="py" name="py" type="number" min="0" max="70" value="'+p.exp+'"></div><div></div></div></div>'+
-    '<div class="fsec"><h3>Location and service area</h3><p class="hint">Accord is open nationwide. Enter your real base city and state so musicians can find you across the United States.</p><div class="two"><div class="field"><label for="pc">Base city</label><input id="pc" name="pc" maxlength="80" placeholder="e.g. Austin" value="'+esc(p.city||"")+'"></div><div class="field"><label for="pst">State</label><select id="pst" name="pst">'+opts(STATES,p.state||"","Choose a state")+'</select></div></div><div class="field" style="margin-top:12px"><label for="pz">ZIP code <small style="display:inline">(optional)</small></label><input id="pz" name="pz" maxlength="5" inputmode="numeric" value="'+esc(p.zip||"")+'"></div>'+
+    '<div class="fsec"><h3>Location and service area</h3><div class="two"><div class="field"><label for="pc">Base city</label><input id="pc" name="pc" maxlength="80" value="'+esc(p.city||"")+'" placeholder="e.g. Boston"></div><div class="field"><label for="psloc">State</label><input id="psloc" name="psloc" maxlength="40" value="'+esc(p.state||"")+'" placeholder="e.g. Massachusetts or MA"></div></div><div class="field" style="margin-top:12px"><label for="pz">ZIP code <small style="display:inline">(optional)</small></label><input id="pz" name="pz" maxlength="5" inputmode="numeric" value="'+esc(p.zip||"")+'" placeholder="5-digit ZIP code"><small>Use your city and state, plus an optional ZIP code, to help musicians find you. No street address is needed.</small></div>'+
     '<div class="checks" style="margin-top:12px"><label><input type="checkbox" name="studio"'+(p.studio?' checked':'')+'> I teach at a studio or home</label></div>'+
     '<div class="two" style="margin-top:12px"><div class="field"><label for="pr">I will travel up to (miles)</label><input id="pr" name="pr" type="number" min="0" max="100" value="'+p.travelRadius+'"><small>Enter 0 if you do not travel.</small></div><div class="field"><label for="pt">Travel fee ($)</label><input id="pt" name="pt" type="number" min="0" max="200" value="'+p.travelFee+'"></div></div></div>'+
     '<div class="fsec"><h3>Services and rates</h3><p class="hint" style="margin-bottom:10px">Select the services you offer and set your hourly rate for each.</p>'+svc+'</div>'+
@@ -45,6 +45,17 @@ document.addEventListener("change",function(e){
   };fr.readAsDataURL(e.target.files[0]);
 });
 ACTIONS["photo-clear"]=function(){PHOTO="";var n=$("#pn").value||"?";$("#photoPrev").innerHTML=avatar({id:"new",name:n,photo:""},"xl")};
+async function geocodeAccompanistLocation(city,state,zip){
+  await AUTH_READY;
+  if(typeof supabaseClient==="undefined"||!supabaseClient)throw new Error("Location service unavailable");
+  var query=zip||[city,state].filter(Boolean).join(", ");
+  var result=await supabaseClient.functions.invoke("geocode-location",{body:{query:query}});
+  if(result.error)throw result.error;
+  var data=result.data||{},lat=Number(data.lat),lng=Number(data.lng);
+  if(!isFinite(lat)||!isFinite(lng))throw new Error("Location coordinates unavailable");
+  return {lat:lat,lng:lng};
+}
+
 FORMS.profile = async function(f) {
   var u = me();
 
@@ -68,7 +79,7 @@ FORMS.profile = async function(f) {
 
   var name = g("pn");
   var city = g("pc");
-  var state = g("pst");
+  var state = g("psloc");
   var zip = g("pz");
   var bio = g("pb");
 
@@ -97,7 +108,7 @@ FORMS.profile = async function(f) {
 
   if (!name) return fail(f, "Enter the name musicians will see.");
   if (!city) return fail(f, "Enter your base city.");
-  if (!state) return fail(f, "Choose your state.");
+  if (!state) return fail(f, "Enter your state so musicians can identify the correct city.");
 
   if (zip && !/^\d{5}$/.test(zip)) {
     return fail(f, "Enter a 5-digit ZIP code, or leave it blank.");
@@ -152,7 +163,9 @@ FORMS.profile = async function(f) {
     (avail[a[0]] = avail[a[0]] || []).push(a[1]);
   });
 
-  var place = placeOf(city);
+  var place = null;
+  try { place = await geocodeAccompanistLocation(city, state, zip); }
+  catch (locationError) { console.warn("Accord could not geocode this profile location yet:", locationError); }
   var existing = myProfile();
 
   var profile = {
@@ -194,9 +207,9 @@ FORMS.profile = async function(f) {
   var details = {
     display_name: profile.name,
     level: profile.level,
-    state: profile.state,
-    country: "United States",
     zip: profile.zip,
+    latitude: profile.lat,
+    longitude: profile.lng,
     services: profile.services,
     purposes: profile.purposes,
     travelFee: profile.travelFee,
@@ -225,6 +238,7 @@ var mainResult = await supabaseClient
   .update({
     role: selectedRole,
     city: city,
+    state: state,
     bio: bio,
     updated_at: new Date().toISOString()
   })
@@ -240,6 +254,7 @@ var mainResult = await supabaseClient
   .update({
     role: selectedRole,
     city: city,
+    state: state,
     bio: bio,
     updated_at: new Date().toISOString()
   })
@@ -261,6 +276,7 @@ if (!mainResult.data) {
       last_name: u.last_name || "",
       role: selectedRole,
       city: city,
+      state: state,
       bio: bio
     });
 
@@ -290,6 +306,7 @@ if (!mainResult.data) {
     u.full_name = name;
     u.role = selectedRole;
     u.city = city;
+    u.state = state;
     u.bio = bio;
 
     // Update the local cache so the existing interface can use the profile.
@@ -302,9 +319,11 @@ if (!mainResult.data) {
     persist("custom");
 
     toast(
-      profile.hidden
-        ? "Profile saved as hidden."
-        : "Your accompanist profile has been published!"
+      !place
+        ? "Profile saved, but we could not verify the location. Please check the location service and save again."
+        : (profile.hidden
+          ? "Profile saved as hidden."
+          : "Your accompanist profile has been published!")
     );
 
     rerender();
@@ -348,7 +367,7 @@ async function loadRemoteMyProfile() {
 
     var profileResult = await supabaseClient
       .from("profiles")
-      .select("id, first_name, last_name, role, city, bio")
+      .select("id, first_name, last_name, role, city, state, bio")
       .eq("id", u.id)
       .maybeSingle();
 
@@ -379,10 +398,10 @@ async function loadRemoteMyProfile() {
   u.name ||
   "",
       city: basic.city || "",
-      state: d.state || (placeOf(basic.city || "") || {}).state || "",
+      state: basic.state || "",
       zip: d.zip || "",
-      lat: (placeOf(basic.city || "") || {}).lat || null,
-      lng: (placeOf(basic.city || "") || {}).lng || null,
+      lat: d.latitude != null ? Number(d.latitude) : (d.lat != null ? Number(d.lat) : null),
+      lng: d.longitude != null ? Number(d.longitude) : (d.lng != null ? Number(d.lng) : null),
       level: d.level || "Emerging professional",
       exp: pp.years_experience || 0,
       specialties: pp.specialties || [],
