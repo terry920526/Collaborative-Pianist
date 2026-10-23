@@ -47,13 +47,29 @@ document.addEventListener("change",function(e){
 ACTIONS["photo-clear"]=function(){PHOTO="";var n=$("#pn").value||"?";$("#photoPrev").innerHTML=avatar({id:"new",name:n,photo:""},"xl")};
 async function geocodeAccompanistLocation(city,state,zip){
   await AUTH_READY;
-  if(typeof supabaseClient==="undefined"||!supabaseClient)throw new Error("Location service unavailable");
-  var query=zip||[city,state].filter(Boolean).join(", ");
-  var result=await supabaseClient.functions.invoke("geocode-location",{body:{query:query}});
-  if(result.error)throw result.error;
-  var data=result.data||{},lat=Number(data.lat),lng=Number(data.lng);
-  if(!isFinite(lat)||!isFinite(lng))throw new Error("Location coordinates unavailable");
-  return {lat:lat,lng:lng};
+  if(typeof supabaseClient==="undefined"||!supabaseClient)throw new Error("Supabase account service is unavailable");
+  var queries=[];
+  if(zip)queries.push(zip);
+  var cityState=[city,state].filter(Boolean).join(", ");
+  if(cityState&&queries.indexOf(cityState)<0)queries.push(cityState);
+  var lastError="The location service did not return coordinates.";
+  for(var i=0;i<queries.length;i++){
+    var result=await supabaseClient.functions.invoke("geocode-location",{body:{query:queries[i]}});
+    if(result.error){
+      lastError=result.error.message||"Location lookup failed";
+      try{
+        if(result.error.context&&typeof result.error.context.json==="function"){
+          var body=await result.error.context.json();
+          if(body&&body.error)lastError=body.error;
+        }
+      }catch(ignore){}
+      continue;
+    }
+    var data=result.data||{},lat=Number(data.lat),lng=Number(data.lng);
+    if(isFinite(lat)&&isFinite(lng))return {lat:lat,lng:lng,name:data.name||queries[i]};
+    lastError=(data&&data.error)||"Location service returned no coordinates.";
+  }
+  throw new Error(lastError);
 }
 
 FORMS.profile = async function(f) {
@@ -164,8 +180,12 @@ FORMS.profile = async function(f) {
   });
 
   var place = null;
+  var locationErrorMessage = "";
   try { place = await geocodeAccompanistLocation(city, state, zip); }
-  catch (locationError) { console.warn("Accord could not geocode this profile location yet:", locationError); }
+  catch (locationError) {
+    locationErrorMessage = String(locationError && locationError.message || "Location lookup failed");
+    console.warn("Accord could not geocode this profile location yet:", locationError);
+  }
   var existing = myProfile();
 
   var profile = {
@@ -320,7 +340,7 @@ if (!mainResult.data) {
 
     toast(
       !place
-        ? "Profile saved, but we could not verify the location. Please check the location service and save again."
+        ? "Profile saved, but location verification failed: " + (locationErrorMessage || "No coordinates returned. Check the location service and save again.")
         : (profile.hidden
           ? "Profile saved as hidden."
           : "Your accompanist profile has been published!")

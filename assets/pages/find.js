@@ -2,6 +2,16 @@
 var F={q:"",loc:""};
 var FROM=null,LOCBAD=false,LOCLOOKING=false,LOC_DRAFT="";
 var LOCATION_CACHE=Object.create(null);
+var LOCERROR="";
+// Restore search terms from the URL before the page renders.
+function parseF(params){
+  F.q=params.get("q")||"";
+  F.loc=params.get("loc")||"";
+  LOC_DRAFT=F.loc;
+  FROM=null;
+  LOCBAD=false;
+  LOCLOOKING=false;
+}
 function cacheKey(s){return String(s||"").trim().toLowerCase().replace(/\s+/g," ");}
 async function geocodeLocation(raw){
   raw=String(raw||"").trim();if(!raw)return null;
@@ -9,7 +19,16 @@ async function geocodeLocation(raw){
   await AUTH_READY;
   if(typeof supabaseClient==="undefined"||!supabaseClient)throw new Error("Location service unavailable");
   var result=await supabaseClient.functions.invoke("geocode-location",{body:{query:raw}});
-  if(result.error)throw result.error;
+  if(result.error){
+    var message=result.error.message||"Location lookup failed";
+    try{
+      if(result.error.context&&typeof result.error.context.json==="function"){
+        var body=await result.error.context.json();
+        if(body&&body.error)message=body.error;
+      }
+    }catch(ignore){}
+    throw new Error(message);
+  }
   var data=result.data||{},lat=Number(data.lat),lng=Number(data.lng);
   if(!isFinite(lat)||!isFinite(lng))throw new Error("Location not found");
   var location={name:data.name||raw,lat:lat,lng:lng};
@@ -17,7 +36,7 @@ async function geocodeLocation(raw){
 }
 function syncUrl(){var p=[];["q","loc"].forEach(function(k){if(F[k])p.push(k+"="+encodeURIComponent(F[k]))});try{history.replaceState(null,"",location.pathname+(p.length?"?"+p.join("&"):""))}catch(e){}}
 async function commitLocation(raw){
-  raw=String(raw==null?LOC_DRAFT:raw).trim();LOC_DRAFT=raw;F.loc=raw;FROM=null;LOCBAD=false;LOCLOOKING=!!raw;syncUrl();renderResults();
+  raw=String(raw==null?LOC_DRAFT:raw).trim();LOC_DRAFT=raw;F.loc=raw;FROM=null;LOCBAD=false;LOCERROR="";LOCLOOKING=!!raw;syncUrl();renderResults();
   if(!raw)return;
   var thisQuery=raw;
   try{
@@ -26,7 +45,8 @@ async function commitLocation(raw){
     LOCBAD=!FROM;LOCLOOKING=false;
   }catch(error){
     if(String(F.loc||"").trim()!==thisQuery)return;
-    FROM=null;LOCBAD=true;LOCLOOKING=false;
+    FROM=null;LOCBAD=true;LOCLOOKING=false;LOCERROR=String(error&&error.message||"Location service failed");
+    console.error("Accord location search failed:",error);
   }
   renderResults();
 }
@@ -48,7 +68,7 @@ function viewFind(c){
 function renderResults(){
   if(!$("#grid"))return;
   var r=fList();
-  var lm=$("#locmsg");if(lm){lm.innerHTML=LOCLOOKING?'<div class="loc-ok">Looking up location…</div>':LOCBAD?'<div class="loc-msg">We could not find that U.S. city or ZIP code. Try “City, State” or a valid 5-digit ZIP code. If this continues, the location service may need configuration.</div>':(F.loc?(FROM?'<div class="loc-ok">Showing accompanists within 50 miles of '+esc(FROM.name)+'</div>':'<div class="loc-ok">Enter a city or ZIP code, then press Enter.</div>'):'<div class="loc-ok">Browse all locations across the United States.</div>');}
+  var lm=$("#locmsg");if(lm){lm.innerHTML=LOCLOOKING?'<div class="loc-ok">Looking up location…</div>':LOCBAD?'<div class="loc-msg">Location lookup failed: '+esc(LOCERROR||"Please try City, State or a valid 5-digit ZIP code.")+'</div>':(F.loc?(FROM?'<div class="loc-ok">Showing accompanists within 50 miles of '+esc(FROM.name)+'</div>':'<div class="loc-ok">Enter a city or ZIP code, then press Enter.</div>'):'<div class="loc-ok">Browse all locations across the United States.</div>');}
   var chips=[],L={q:"Search: "+F.q,loc:F.loc};Object.keys(L).forEach(function(k){if(F[k]&&L[k])chips.push([k,L[k]])});
   $("#active").innerHTML=chips.length?chips.map(function(x){return '<button class="fchip" type="button" data-action="clear" data-k="'+x[0]+'" aria-label="Remove filter: '+esc(x[1])+'">'+esc(x[1])+' <span aria-hidden="true">✕</span></button>'}).join("")+(chips.length>1?'<button class="linkbtn" type="button" data-action="clear" data-k="all">Clear all</button>':''):"";
   $("#count").textContent=r.length+(r.length===1?" accompanist":" accompanists")+(F.loc&&FROM?" within 50 miles":"")+" match your search";
