@@ -515,3 +515,13 @@ body:has(.auth-dlg[open]){overflow:hidden}
 .recovery-back{text-align:center;margin-top:22px;font-size:14px}
 .recovery-back a{color:var(--accent);font-weight:600;text-underline-offset:3px}
 .recovery-card [hidden]{display:none!important}
+
+
+/* Separate musician and accompanist dashboards */
+.dash-quicklinks{display:flex;gap:10px;flex-wrap:wrap;margin:-12px 0 24px}
+.dashboard-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(240px,1fr);gap:24px;align-items:start;margin-top:26px}
+.dashboard-linklist{display:flex;flex-direction:column}
+.dashboard-linklist a{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);text-decoration:none;font-weight:500}
+.dashboard-linklist a:last-child{border-bottom:0}
+.dashboard-linklist a:hover{color:var(--accent)}
+@media(max-width:760px){.dashboard-grid{grid-template-columns:1fr}.dash-quicklinks{margin-top:0}.dash{grid-template-columns:1fr;gap:20px}.tabs{position:static;flex-direction:row;overflow-x:auto;white-space:nowrap;padding-bottom:4px}}
