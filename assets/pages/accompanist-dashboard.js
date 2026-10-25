@@ -91,36 +91,102 @@ async function loadAccompanistDashboardBookings() {
     return;
   }
 
-  container.innerHTML = bookings.slice(0, 4).map(booking => {
-    const date = booking.event_date || "Date not specified";
-    const time = booking.event_time
-      ? booking.event_time.slice(0, 5)
-      : "Time not specified";
+container.innerHTML = bookings.slice(0, 4).map(booking => {
+  const date = booking.event_date || "Date not specified";
+  const time = booking.event_time
+    ? booking.event_time.slice(0, 5)
+    : "Time not specified";
 
-    const status = booking.status || "pending";
+  const status = booking.status || "pending";
 
-    return `
-      <div class="row-item">
-        <div class="grow">
-          <b>Booking request</b>
-          <div class="meta">
-            ${esc(date)} · ${esc(time)}
-          </div>
-          <div class="meta">
-            ${esc(booking.repertoire || "No repertoire specified")}
-          </div>
-          <div class="meta">
-            ${esc(booking.location || "Location not specified")}
-          </div>
-          <div class="meta">
-            ${esc(booking.message || "No additional message")}
-          </div>
-        </div>
-        <span class="pill">${esc(status)}</span>
+  const responseButtons = status === "pending"
+    ? `
+      <div class="booking-actions" style="display:flex;gap:8px;margin-top:12px;">
+        <button
+          type="button"
+          class="btn primary"
+          data-booking-action="accepted"
+          data-booking-id="${esc(booking.id)}"
+        >
+          Accept
+        </button>
+        <button
+          type="button"
+          class="btn"
+          data-booking-action="declined"
+          data-booking-id="${esc(booking.id)}"
+        >
+          Decline
+        </button>
       </div>
-    `;
-  }).join("");
+    `
+    : "";
+
+  return `
+    <div class="row-item">
+      <div class="grow">
+        <b>Booking request</b>
+        <div class="meta">
+          ${esc(date)} · ${esc(time)}
+        </div>
+        <div class="meta">
+          ${esc(booking.repertoire || "No repertoire specified")}
+        </div>
+        <div class="meta">
+          ${esc(booking.location || "Location not specified")}
+        </div>
+        <div class="meta">
+          ${esc(booking.message || "No additional message")}
+        </div>
+        ${responseButtons}
+      </div>
+      <span class="pill">${esc(status)}</span>
+    </div>
+  `;
+}).join("");
 }
 
 // Wait for authentication before loading bookings.
 AUTH_READY.then(loadAccompanistDashboardBookings);
+// Handle Accept and Decline actions on booking requests.
+document.addEventListener("click", async function (event) {
+  const button = event.target.closest("[data-booking-action]");
+
+  if (!button) return;
+
+  const bookingId = button.dataset.bookingId;
+  const response = button.dataset.bookingAction;
+
+  if (!bookingId || !["accepted", "declined"].includes(response)) {
+    return;
+  }
+
+  const actionLabel = response === "accepted" ? "accept" : "decline";
+
+  if (!window.confirm(`Are you sure you want to ${actionLabel} this booking?`)) {
+    return;
+  }
+
+  const originalText = button.textContent;
+
+  button.disabled = true;
+  button.textContent = "Saving...";
+
+  const { error } = await supabaseClient.rpc("respond_to_booking", {
+    p_booking_id: bookingId,
+    p_response: response
+  });
+
+  if (error) {
+    console.error("Could not respond to booking:", error);
+    alert("We couldn't update this booking. Please refresh and try again.");
+    button.disabled = false;
+    button.textContent = originalText;
+    return;
+  }
+
+  alert(`Booking ${response} successfully.`);
+
+  // Reload the dashboard so the updated status appears.
+  await loadAccompanistDashboardBookings();
+});
