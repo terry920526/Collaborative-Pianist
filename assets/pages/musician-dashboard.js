@@ -17,4 +17,103 @@ function viewMusicianDashboard(){
     (u.role==="both"?'<div class="banner" style="margin-top:20px">You can also use Accord as an accompanist. <a href="accompanist-dashboard.html">Switch to accompanist dashboard</a>.</div>':'');
   return {title:"Musician Dashboard – Accord",html:dashShell("",inner)};
 }
-mount(viewMusicianDashboard,"");
+mount(viewMusicianDashboard, "");
+
+// Load real booking requests from Supabase.
+async function loadMusicianDashboardBookings() {
+  const user = me();
+
+  if (!user) return;
+
+  const { data, error } = await supabaseClient
+    .from("booking_requests")
+    .select("*")
+    .eq("musician_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Could not load musician bookings:", error);
+    return;
+  }
+
+  const bookings = data || [];
+  const todayDate = new Date().toISOString().slice(0, 10);
+
+  const pending = bookings.filter(
+    booking => booking.status === "pending"
+  );
+
+  const upcoming = bookings.filter(
+    booking =>
+      booking.status === "accepted" &&
+      booking.event_date &&
+      booking.event_date >= todayDate
+  );
+
+  // Update the dashboard's three statistics.
+  const stats = document.querySelectorAll("#view .stats .stat b");
+
+  if (stats.length >= 3) {
+    stats[0].textContent = bookings.length;
+    stats[1].textContent = upcoming.length;
+    stats[2].textContent = pending.length;
+  }
+
+  // Display the most recent real booking requests.
+  const sections = document.querySelectorAll("#view .dashboard-grid section");
+  if (!sections.length) return;
+
+  const section = sections[0];
+  let container = section.querySelector(".rows");
+
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "rows";
+
+    const empty = section.querySelector(".empty");
+    if (empty) empty.remove();
+
+    section.appendChild(container);
+  }
+
+  if (!bookings.length) {
+    container.innerHTML =
+      '<div class="empty" style="grid-column:auto">' +
+      '<h3>No bookings yet</h3>' +
+      '<p>Search for a pianist and send your first booking request.</p>' +
+      '<a class="btn primary" href="find.html">Find an accompanist</a>' +
+      '</div>';
+
+    return;
+  }
+
+  container.innerHTML = bookings.slice(0, 4).map(booking => {
+    const date = booking.event_date || "Date not specified";
+    const time = booking.event_time
+      ? booking.event_time.slice(0, 5)
+      : "Time not specified";
+
+    const status = booking.status || "pending";
+
+    return `
+      <div class="row-item">
+        <div class="grow">
+          <b>Booking request</b>
+          <div class="meta">
+            ${esc(date)} · ${esc(time)}
+          </div>
+          <div class="meta">
+            ${esc(booking.repertoire || "No repertoire specified")}
+          </div>
+          <div class="meta">
+            ${esc(booking.location || "Location not specified")}
+          </div>
+        </div>
+        <span class="pill">${esc(status)}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+// Wait until authentication has loaded before querying bookings.
+AUTH_READY.then(loadMusicianDashboardBookings);
