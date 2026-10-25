@@ -44,7 +44,7 @@ function updateBook(p){
 }
 document.addEventListener("input",function(e){var f=e.target.closest("#bookForm");if(f)updateBook(getP(f.dataset.id))});
 document.addEventListener("change",function(e){var f=e.target.closest("#bookForm");if(f)updateBook(getP(f.dataset.id))});
-FORMS.book=function(f){
+FORMS.book=async function(f){
   var p=getP(f.dataset.id),u=me(),g=function(n){return f.elements[n].value.trim()};
   var svc=(f.querySelector('input[name="service"]:checked')||{}).value,lt=(f.querySelector('input[name="locType"]:checked')||{}).value;
   var date=g("date"),rep=g("rep");
@@ -59,7 +59,38 @@ FORMS.book=function(f){
     inst:g("inst"),repertoire:rep,perfDate:g("perf"),locType:lt,address:lt==="travel"?g("address"):"",notes:g("notes"),
     rate:e.rate,subtotal:e.subtotal,travelFee:e.travel,total:e.total,commission:e.commission,status:p.sample?"demo":"requested",proposal:null,
     pay:"unpaid",reviewed:false,commissionCollected:false,ts:now,history:[{ts:now,text:"Request sent by "+u.name}]};
-  DB.bookings.unshift(b);persist("bookings");
+    // Save real booking requests to Supabase.
+  // Sample accompanists remain local demonstrations.
+  if (!p.sample) {
+    const { data, error } = await supabaseClient
+      .from("booking_requests")
+      .insert({
+        musician_id: u.id,
+        pianist_id: p.ownerId || p.id,
+        event_date: date,
+        event_time: g("start"),
+        location: lt === "travel" ? g("address") : (p.city || ""),
+        repertoire: rep,
+        message: g("notes"),
+        proposed_rate: e.total,
+        status: "pending"
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Could not save booking request:", error);
+      return fail(
+        f,
+        "Your booking request could not be saved. Please try again."
+      );
+    }
+
+    b.remoteId = data.id;
+  }
+
+  DB.bookings.unshift(b);
+  persist("bookings");
   notify(u.id,u.email,"Booking request sent to "+p.name,"Your request was sent.\n\n"+bookingSummary(b)+"\n\n"+(p.sample?"This is a sample accompanist, so nobody will reply.":"You will be notified when "+p.name.split(" ")[0]+" responds."),bookingUrl(b.id));
   if(!p.sample)notifyOther(b,"musician","New booking request from "+u.name,u.name+" would like to book you.\n\n"+bookingSummary(b)+(b.notes?"\n\nNotes: "+b.notes:"")+"\n\nOpen the request to accept, decline or propose another time.");
   else notifyOther(b,"musician","[Sample] New booking request from "+u.name,bookingSummary(b));
