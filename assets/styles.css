@@ -182,6 +182,33 @@ mark{background:var(--soft);color:inherit;border-radius:3px;padding:0 2px;box-sh
 .save{width:42px;height:42px;flex:none;border-radius:50%;border:1.5px solid var(--line);background:transparent;cursor:pointer;display:grid;place-items:center;font-size:18px;line-height:1}
 .save:hover{border-color:var(--ink)}
 .save[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
+/* Accompanist discovery cards: portrait-led, minimal Accord styling */
+.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.accompanist-card{padding:0;gap:0;border:0;background:transparent;overflow:hidden;min-width:0}
+.accompanist-card:hover{border-color:transparent}
+.accompanist-photo-wrap{position:relative;isolation:isolate;aspect-ratio:4/4.15;border-radius:24px;overflow:hidden;background:var(--soft)}
+.accompanist-photo-link{position:absolute;inset:0;display:block;z-index:0}
+.accompanist-photo,.accompanist-photo-placeholder{width:100%;height:100%;display:block;object-fit:cover;object-position:center 35%;transition:transform .25s ease}
+.accompanist-photo-placeholder{display:grid;place-items:center;background:var(--soft);color:var(--ink);font-family:var(--serif);font-size:64px}
+.accompanist-card:hover .accompanist-photo{transform:scale(1.025)}
+.accompanist-photo-shade{position:absolute;inset:35% 0 0;background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.12) 32%,rgba(0,0,0,.76) 100%);pointer-events:none;z-index:1}
+.accompanist-photo-copy{position:absolute;z-index:2;left:20px;right:54px;bottom:18px;color:#fff;pointer-events:none}
+.accompanist-photo-copy h3{font-family:var(--sans);font-size:25px;line-height:1.15;font-weight:650;letter-spacing:-.025em;margin:0 0 6px}
+.accompanist-photo-copy h3 a{color:#fff;text-decoration:none;pointer-events:auto}
+.accompanist-location{font-size:15px;line-height:1.35;font-weight:500;color:rgba(255,255,255,.96)}
+.accompanist-favorite{position:absolute;z-index:3;top:14px;right:14px;width:42px;height:42px;border:0;background:rgba(20,20,20,.12);backdrop-filter:blur(4px);color:#fff;font-size:29px;line-height:1;text-shadow:0 1px 5px rgba(0,0,0,.28)}
+.accompanist-favorite:hover{border:0;background:rgba(20,20,20,.24)}
+.accompanist-favorite[aria-pressed="true"]{color:#f2294e;border:0;background:rgba(255,255,255,.94);text-shadow:none}
+.accompanist-card-details{display:block;text-decoration:none;color:var(--ink);padding:13px 2px 0}
+.accompanist-rating{display:flex;align-items:center;gap:6px;min-height:23px;font-size:15px}
+.accompanist-star{color:#f5ad00;font-size:22px;line-height:1}
+.accompanist-rating-value{font-weight:650}
+.accompanist-review-count{color:var(--muted)}
+.accompanist-new{font-weight:500}
+.accompanist-price{margin-top:9px;font-size:16px;color:var(--ink)}
+.accompanist-price strong{font-weight:700}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.grid,.grid.three{grid-template-columns:1fr}.accompanist-photo-wrap{aspect-ratio:4/3.7}.accompanist-photo-copy{left:16px;bottom:15px}.accompanist-photo-copy h3{font-size:23px}}
 .empty{grid-column:1/-1;text-align:center;padding:56px 20px;background:var(--surface);border:1px dashed var(--line);border-radius:16px}
 .empty h3{font-size:24px;margin-bottom:6px}
 .empty p{color:var(--muted);margin-bottom:16px}
@@ -367,6 +394,8 @@ footer{margin-top:96px;border-top:1px solid var(--line);padding:40px 0 48px;colo
 .avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
 .btn.lg{padding:14px 28px;font-size:17px}
+.search.s4{grid-template-columns:1.3fr .7fr 1fr auto}
+@media (max-width:980px){.search.s4{grid-template-columns:1fr}}
 .why{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1.5px solid var(--ink)}
 .why > div{padding:24px 28px 6px 0}
 .why > div + div{padding-left:28px;border-left:1px solid var(--line)}

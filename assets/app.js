@@ -396,7 +396,7 @@ function profileFromRow(row) {
     travelFee: Number(d.travelFee || 0),
     travelRadius: Number(d.travelRadius || 0),
     studio: !!d.studio,
-    photo: "",
+    photo: d.photo || d.photo_url || d.avatar_url || "",
     hidden: false,
     suspended: false,
     rating: 0,
@@ -508,19 +508,20 @@ function avatar(p,cls){
 function ratingHTML(p){var s=stats(p);return s.reviews?('<span class="stars">★ '+s.rating.toFixed(1)+'</span> ('+s.reviews+' review'+(s.reviews===1?'':'s')+')'):'<span class="tag new">New</span>'}
 function statusChip(s){return '<span class="status '+esc(s)+'">'+esc(STATUS[s]||s)+'</span>'}
 function cardHTML(p,q,from){
-  var w=q?words(q):[],u=me(),own=u&&p.ownerId===u.id;
-  var tags=p.inst.slice(0,4).map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join("")+(p.inst.length>4?'<span class="tag">+'+(p.inst.length-4)+'</span>':'');
-  var match="";
-  if(w.length){var hit=p.rep.filter(function(r){var l=r.toLowerCase();return w.some(function(x){return l.indexOf(x)>=0})})[0];if(hit)match='<p class="match">Knows: '+hl(hit,w)+'</p>'}
-  var where=esc([p.city,p.state].filter(Boolean).join(", "))+(from?(Math.round(miles(from,p))<1?' · <b>same city</b>':' · <b>'+Math.round(miles(from,p))+' mi</b> away'):'');
-  return '<article class="card">'+
-    '<div class="card-top">'+avatar(p)+
-      '<div><h3><a href="'+pianistUrl(p.id)+'">'+esc(p.name)+'</a></h3><div class="meta">'+where+'</div><div class="meta">'+ratingHTML(p)+'</div><div class="meta">'+esc(p.level)+(p.exp?' · '+p.exp+' yrs':'')+'</div></div>'+
-      '<div class="rate"><span>from</span><b>'+money(minRate(p))+'</b><span>per hour</span></div></div>'+
-    '<p class="bio">'+hl(p.bio,w)+'</p>'+match+
-    '<div class="tags">'+(own?'<span class="tag new">Your listing</span>':'')+tags+'</div>'+
-    '<div class="card-actions"><a class="btn" href="'+pianistUrl(p.id)+'">View profile</a><a class="btn primary" href="book.html?pianist='+encodeURIComponent(p.id)+'">Connect</a>'+
-    '<button class="save" type="button" data-action="save" data-id="'+esc(p.id)+'" aria-pressed="'+(!!DB.saved[p.id])+'" aria-label="Save '+esc(p.name)+' to shortlist" title="Save to shortlist">'+(DB.saved[p.id]?"♥":"♡")+'</button></div>'+
+  var u=me(),own=u&&p.ownerId===u.id,s=stats(p),saved=!!DB.saved[p.id];
+  var where=[p.city,p.state].filter(Boolean).join(", ")||"Location not listed";
+  var photo=p.photo?'<img class="accompanist-photo" src="'+esc(p.photo)+'" alt="Portrait of '+esc(p.name)+'" loading="lazy">':'<div class="accompanist-photo-placeholder" aria-hidden="true">'+esc((p.name||"A").split(/\s+/).map(function(w){return w[0]}).slice(0,2).join("").toUpperCase())+'</div>';
+  return '<article class="card accompanist-card">'+
+    '<div class="accompanist-photo-wrap">'+
+      '<a class="accompanist-photo-link" href="'+pianistUrl(p.id)+'" aria-label="View '+esc(p.name)+' profile">'+photo+'</a>'+
+      '<div class="accompanist-photo-shade" aria-hidden="true"></div>'+
+      '<div class="accompanist-photo-copy"><h3><a href="'+pianistUrl(p.id)+'">'+esc(p.name)+'</a></h3><div class="accompanist-location">'+esc(where)+'</div></div>'+
+      '<button class="save accompanist-favorite" type="button" data-action="save" data-id="'+esc(p.id)+'" aria-pressed="'+saved+'" aria-label="'+(saved?'Remove '+esc(p.name)+' from':'Add '+esc(p.name)+' to')+' favorites" title="'+(saved?'Remove favorite':'Add to favorites')+'">'+(saved?'♥':'♡')+'</button>'+
+    '</div>'+
+    '<a class="accompanist-card-details" href="'+pianistUrl(p.id)+'" aria-label="View '+esc(p.name)+' profile">'+
+      '<div class="accompanist-rating"><span class="accompanist-star" aria-hidden="true">★</span>'+(s.reviews?'<span class="accompanist-rating-value">'+s.rating.toFixed(1).replace(/\.0$/,'')+'</span><span class="accompanist-review-count">('+s.reviews+' review'+(s.reviews===1?'':'s')+')</span>':'<span class="accompanist-new">New</span>')+'</div>'+
+      '<div class="accompanist-price">from <strong>'+money(minRate(p))+' / hour</strong></div>'+
+    '</a>'+
   '</article>';
 }
 function stepsHTML(){
@@ -556,7 +557,7 @@ var HEADER_HTML=
   '<nav class="main" aria-label="Main" id="nav">'+
     '<a href="find.html" data-nav="find">Find an accompanist</a>'+
     '<a href="how-it-works.html" data-nav="how">How it works</a>'+
-    '<a href="become-accompanist.html" data-nav="for" data-accompanist-promo>Become an accompanist</a>'+
+    '<a href="become-accompanist.html" data-nav="for">Become an accompanist</a>'+
     '<a href="help.html" data-nav="help">Help</a>'+
   '</nav><div class="spacer"></div>'+
   '<div class="hdr-right">'+
@@ -568,7 +569,7 @@ var FOOTER_HTML=
 '<footer><div class="wrap"><div class="fcols">'+
   '<div><b style="font-family:var(--serif);font-size:22px;color:var(--ink)">Accord</b><p style="margin-top:8px;max-width:32ch">Find, evaluate and book a collaborative pianist in Southern California.</p></div>'+
   '<div><h4>Musicians</h4><a href="find.html">Find an accompanist</a><a href="how-it-works.html">How it works</a><a href="saved.html">Your shortlist</a><a href="bookings.html">My bookings</a></div>'+
-  '<div><h4>Accompanists</h4><a href="become-accompanist.html" data-accompanist-promo>Why list on Accord</a><a href="signup.html?role=pianist" data-accompanist-promo>Create a profile</a><a href="my-profile.html">My profile</a></div>'+
+  '<div><h4>Accompanists</h4><a href="become-accompanist.html">Why list on Accord</a><a href="signup.html?role=pianist">Create a profile</a><a href="my-profile.html">My profile</a></div>'+
   '<div><h4>Support</h4><a href="help.html">Help center</a><a href="help.html#cancellations">Policies</a><a href="login.html">Log in</a><a href="signup.html">Sign up</a></div>'+
 '</div><p class="fine">© '+new Date().getFullYear()+' Accord</p></div></footer>';
 
@@ -584,39 +585,6 @@ function renderHeader(){
   }else{
     a.innerHTML='<a class="btn small hide-s" href="login.html">Log in</a><a class="btn small primary" href="signup.html">Sign up</a>';
   }
-  refreshAccompanistPromos();
-}
-
-/* Hide recruitment links for musicians and for accompanists who already have a published listing. */
-var ACCOMPANIST_PROMO_CHECK_USER = null;
-var ACCOMPANIST_PROMO_CHECK = null;
-function refreshAccompanistPromos() {
-  var u = me();
-  var promos = document.querySelectorAll('[data-accompanist-promo]');
-  var homePromo = document.getElementById('homeAccompanistPromo');
-  function setVisible(visible) {
-    Array.prototype.forEach.call(promos, function(el) { el.style.display = visible ? '' : 'none'; });
-    if (homePromo) homePromo.style.display = visible ? '' : 'none';
-  }
-  if (!u) { setVisible(true); return; }
-  if (u.role === 'musician' || u.role === 'admin') { setVisible(false); return; }
-  if (u.role !== 'pianist' && u.role !== 'both') { setVisible(false); return; }
-  if (ACCOMPANIST_PROMO_CHECK_USER === u.id && ACCOMPANIST_PROMO_CHECK) {
-    ACCOMPANIST_PROMO_CHECK.then(function(published) { setVisible(!published); });
-    return;
-  }
-  ACCOMPANIST_PROMO_CHECK_USER = u.id;
-  ACCOMPANIST_PROMO_CHECK = (async function() {
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) return false;
-    var result = await supabaseClient.from('pianist_profiles').select('id')
-      .eq('id', u.id).eq('is_published', true).maybeSingle();
-    if (result.error) {
-      console.warn('Could not check published accompanist profile:', result.error);
-      return false;
-    }
-    return !!result.data;
-  })();
-  ACCOMPANIST_PROMO_CHECK.then(function(published) { setVisible(!published); });
 }
 
 /* ---------- page mounting ---------- */
