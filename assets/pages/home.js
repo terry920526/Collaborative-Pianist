@@ -17,20 +17,20 @@ function viewHome() {
         '<a class="btn lg" href="become-accompanist.html">Become an Accompanist</a>' +
       '</div>' +
 
-      '<form class="search hero-search" data-form="heroSearch" role="search">' +
+      '<form class="search" data-form="heroSearch" role="search">' +
         '<label><span>City or ZIP code</span><input name="loc" type="text" placeholder="e.g. Los Angeles or 90001" autocomplete="off"></label>' +
         '<button class="btn primary" type="submit">Search</button>' +
       '</form>' +
 
-      '<div class="try"><span>Popular:</span>' +
+      '<div class="try"><span>Popular cities:</span>' +
         [
-          ["Brahms", "Brahms sonatas"],
-          ["Opera", "Opera auditions"],
-          ["Suzuki", "Suzuki repertoire"],
-          ["Jazz", "Jazz"],
-          ["Competition", "Competition prep"]
+          ["Los Angeles, California", "Los Angeles, California"],
+          ["San Francisco, California", "San Francisco, California"],
+          ["Houston, Texas", "Houston, Texas"],
+          ["New York, New York", "New York, New York"],
+          ["Chicago, Illinois", "Chicago, Illinois"]
         ].map(function(x) {
-          return '<a href="find.html?q=' +
+          return '<a href="find.html?loc=' +
             encodeURIComponent(x[0]) + '">' + x[1] + '</a>';
         }).join("") +
       '</div>' +
@@ -285,13 +285,8 @@ async function loadHomeAccompanists() {
 /* ---------- Hero search ---------- */
 
 FORMS.heroSearch = function(f) {
-  var p = [];
   var loc = f.elements.loc.value.trim();
-  if (loc) {
-    p.push("loc=" + encodeURIComponent(loc));
-  }
-
-  go("find.html" + (p.length ? "?" + p.join("&") : ""));
+  go("find.html" + (loc ? "?loc=" + encodeURIComponent(loc) : ""));
 };
 
 
