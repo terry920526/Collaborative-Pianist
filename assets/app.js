@@ -61,6 +61,7 @@ async function initializeSupabaseAuth() {
           }
 
           renderHeader();
+          refreshAccompanistPromos();
         } catch (error) {
           console.error("Authentication update failed:", error);
         }
@@ -526,8 +527,8 @@ function cardHTML(p,q,from){
 }
 function stepsHTML(){
   return '<div class="steps">'+
-    '<div class="step"><div class="n">1</div><h3>Search</h3><p>Find accompanists by city or ZIP code, instrument, specialty, price and the pieces they already know.</p></div>'+
-    '<div class="step"><div class="n">2</div><h3>Request a booking</h3><p>Choose a service, date and time, and tell them your repertoire. They can accept, decline, or propose another time.</p></div>'+
+    '<div class="step"><div class="n">1</div><h3>Search</h3><p>Find a collaborative pianist by city or ZIP code or by the piece you’d like to work on.</p></div>'+
+    '<div class="step"><div class="n">2</div><h3>Request a booking</h3><p>Choose a date and time and tell them your repertoire. They can accept, decline, or propose another time.</p></div>'+
     '<div class="step"><div class="n">3</div><h3>Rehearse and review</h3><p>Once confirmed, you both get the booking details. After your session, leave a review to help the next musician.</p></div></div>';
 }
 function notFound(msg){return '<div class="wrap page"><div class="empty"><h3>Page not found</h3><p>'+esc(msg||"That page does not exist.")+'</p><a class="btn primary" href="find.html">Find an accompanist</a></div></div>'}
@@ -573,6 +574,49 @@ var FOOTER_HTML=
   '<div><h4>Support</h4><a href="help.html">Help center</a><a href="help.html#cancellations">Policies</a><a href="login.html">Log in</a><a href="signup.html">Sign up</a></div>'+
 '</div><p class="fine">© '+new Date().getFullYear()+' Accord</p></div></footer>';
 
+async function refreshAccompanistPromos(){
+  var user = me();
+  var showPromos = !user;
+
+  if (user) {
+    // A musician account must not be offered accompanist registration.
+    if (user.role === "musician") {
+      showPromos = false;
+    } else {
+      // Accompanist accounts only see recruitment prompts until they have
+      // a published accompanist profile.
+      showPromos = true;
+      try {
+        await AUTH_READY;
+        if (typeof supabaseClient !== "undefined" && supabaseClient) {
+          var result = await supabaseClient
+            .from("pianist_profiles")
+            .select("id, is_published")
+            .eq("id", user.id)
+            .eq("is_published", true)
+            .maybeSingle();
+          if (!result.error && result.data) showPromos = false;
+        }
+      } catch (error) {
+        console.warn("Could not check published accompanist profile status:", error);
+      }
+    }
+  }
+
+  document.querySelectorAll("[data-accompanist-promo], #homeAccompanistPromo, [data-nav=\"for\"]").forEach(function(el){
+    el.hidden = !showPromos;
+    el.setAttribute("aria-hidden", showPromos ? "false" : "true");
+  });
+
+  // Keep footer recruitment links consistent with the header and homepage.
+  document.querySelectorAll('a[href="become-accompanist.html"], a[href="signup.html?role=pianist"]').forEach(function(el){
+    if (el.closest("footer") || el.matches("[data-accompanist-promo]")) {
+      el.hidden = !showPromos;
+      el.setAttribute("aria-hidden", showPromos ? "false" : "true");
+    }
+  });
+}
+
 function renderHeader(){
   var u=me();
   var sc=$("#savedCount");if(sc)sc.textContent=Object.keys(DB.saved).length;
@@ -595,6 +639,8 @@ var FORMS={};     /* data-form submit handlers; pages add their own */
 var onSavedChange=null;
 
 function mount(viewFn,route){
+  // Update accompanist recruitment links based on the signed-in account.
+  setTimeout(refreshAccompanistPromos, 0);
   CUR={fn:viewFn,route:route||""};
   document.body.insertAdjacentHTML("afterbegin",'<a class="skip" href="#main">Skip to content</a>'+HEADER_HTML);
   $("#main").insertAdjacentHTML("afterend",FOOTER_HTML);
