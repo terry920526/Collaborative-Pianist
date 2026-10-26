@@ -2,7 +2,11 @@
 var PHOTO="";
 function viewMyProfile(){
   var g=guard();if(g)return g;
-  var u=me(),existing=myProfile();
+  var u=me();
+  if (!u || (u.role !== "pianist" && u.role !== "both" && u.role !== "admin")) {
+    return {title:"Accompanist profile unavailable – Accord",html:'<div class="wrap page"><div class="box"><h1>Accompanist profiles are for accompanist accounts</h1><p>Your account is registered as a musician, so you cannot create or publish an accompanist profile with this account.</p><p><a class="btn primary" href="find.html">Find an accompanist</a></p></div></div>'};
+  }
+  var existing=myProfile();
   var p=existing||{name:u.name,city:"",state:"",zip:"",level:"Emerging professional",exp:3,specialties:[],inst:[],purposes:[],services:{"Rehearsal":60},travelFee:0,travelRadius:15,studio:true,languages:["English"],education:"",bio:"",rep:[],avail:{},videos:[],photo:"",hidden:false};
   PHOTO=p.photo||"";
   var fields=[p.city,p.photo,(p.bio||"").length>=80,p.rep.length>=4,p.inst.length,p.specialties.length,p.purposes.length,Object.keys(p.services).length,p.education,p.videos.length,Object.keys(p.avail||{}).length,p.languages.length];

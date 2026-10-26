@@ -1,6 +1,12 @@
 /* Page: become-accompanist.html – recruit accompanists. */
 function viewBecome(){
   var u=me(),mp=myProfile();
+  if (u && u.role === "musician") {
+    return {title:"Become an accompanist – Accord",html:'<div class="wrap page"><div class="box"><h1>Your account is registered as a musician</h1><p>This account cannot be used to create an accompanist profile.</p><p><a class="btn primary" href="find.html">Find an accompanist</a></p></div></div>'};
+  }
+  if (u && (u.role === "pianist" || u.role === "both")) {
+    return {title:"Become an accompanist – Accord",html:'<div class="wrap page"><div class="box"><h1>Manage your accompanist profile</h1><p>Visit your profile to update your listing and availability.</p><p><a class="btn primary" href="my-profile.html">My profile</a> <a class="btn" href="bookings.html">My bookings</a></p></div></div>',after:refreshAccompanistPromos};
+  }
   var cta=u?(mp?'<a class="btn primary" href="bookings.html">Open your bookings</a>':'<a class="btn primary" href="my-profile.html">Create your profile</a>'):'<a class="btn primary" href="signup.html?role=pianist">Create a free profile</a>';
   var html='<div class="wrap page"><div class="page-head"><h1>Become an accompanist</h1><p>Advertise your services to musicians near you, set your own rates and availability, and receive booking requests. Open to piano students and professional accompanists.</p><p style="margin-top:20px">'+cta+'</p></div>'+
    '<div class="benefits"><div class="benefit"><h3>Create a professional profile</h3><p>Photo, bio, education, videos, repertoire, languages and reviews, all in one portfolio page.</p></div>'+

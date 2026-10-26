@@ -14,7 +14,7 @@ function viewHome() {
       '<p class="lead">Search collaborative pianists near you, compare rates and experience, and request a booking in minutes. Built for conservatory students, teachers, and professionals.</p>' +
       '<div class="hero-cta">' +
         '<a class="btn primary lg" href="find.html">Find an Accompanist</a>' +
-        '<a class="btn lg" href="become-accompanist.html">Become an Accompanist</a>' +
+        '<a class="btn lg" href="become-accompanist.html" data-accompanist-promo>Become an Accompanist</a>' +
       '</div>' +
 
       '<form class="search" data-form="heroSearch" role="search">' +
@@ -94,13 +94,13 @@ function viewHome() {
         '</div>' +
       '</section>' +
 
-      '<section class="sec">' +
+      '<section class="sec" id="homeAccompanistPromo">' +
         '<div class="cta">' +
           '<div>' +
             '<h2>Are you an accompanist?</h2>' +
             '<p>Create a professional profile, set your rates and availability, and receive booking requests from musicians near you.</p>' +
           '</div>' +
-          '<a class="btn" href="signup.html?role=pianist">Create your profile</a>' +
+          '<a class="btn" href="signup.html?role=pianist" data-accompanist-promo>Create your profile</a>' +
         '</div>' +
       '</section>' +
 
@@ -119,6 +119,7 @@ function viewHome() {
 function mountHome() {
   mountKeys();
   loadHomeAccompanists();
+  refreshAccompanistPromos();
 }
 
 
