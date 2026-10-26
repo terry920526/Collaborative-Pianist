@@ -556,7 +556,7 @@ var HEADER_HTML=
   '<nav class="main" aria-label="Main" id="nav">'+
     '<a href="find.html" data-nav="find">Find an accompanist</a>'+
     '<a href="how-it-works.html" data-nav="how">How it works</a>'+
-    '<a href="become-accompanist.html" data-nav="for">Become an accompanist</a>'+
+    '<a href="become-accompanist.html" data-nav="for" data-accompanist-promo>Become an accompanist</a>'+
     '<a href="help.html" data-nav="help">Help</a>'+
   '</nav><div class="spacer"></div>'+
   '<div class="hdr-right">'+
@@ -568,7 +568,7 @@ var FOOTER_HTML=
 '<footer><div class="wrap"><div class="fcols">'+
   '<div><b style="font-family:var(--serif);font-size:22px;color:var(--ink)">Accord</b><p style="margin-top:8px;max-width:32ch">Find, evaluate and book a collaborative pianist in Southern California.</p></div>'+
   '<div><h4>Musicians</h4><a href="find.html">Find an accompanist</a><a href="how-it-works.html">How it works</a><a href="saved.html">Your shortlist</a><a href="bookings.html">My bookings</a></div>'+
-  '<div><h4>Accompanists</h4><a href="become-accompanist.html">Why list on Accord</a><a href="signup.html?role=pianist">Create a profile</a><a href="my-profile.html">My profile</a></div>'+
+  '<div><h4>Accompanists</h4><a href="become-accompanist.html" data-accompanist-promo>Why list on Accord</a><a href="signup.html?role=pianist" data-accompanist-promo>Create a profile</a><a href="my-profile.html">My profile</a></div>'+
   '<div><h4>Support</h4><a href="help.html">Help center</a><a href="help.html#cancellations">Policies</a><a href="login.html">Log in</a><a href="signup.html">Sign up</a></div>'+
 '</div><p class="fine">© '+new Date().getFullYear()+' Accord</p></div></footer>';
 
@@ -584,6 +584,39 @@ function renderHeader(){
   }else{
     a.innerHTML='<a class="btn small hide-s" href="login.html">Log in</a><a class="btn small primary" href="signup.html">Sign up</a>';
   }
+  refreshAccompanistPromos();
+}
+
+/* Hide recruitment links for musicians and for accompanists who already have a published listing. */
+var ACCOMPANIST_PROMO_CHECK_USER = null;
+var ACCOMPANIST_PROMO_CHECK = null;
+function refreshAccompanistPromos() {
+  var u = me();
+  var promos = document.querySelectorAll('[data-accompanist-promo]');
+  var homePromo = document.getElementById('homeAccompanistPromo');
+  function setVisible(visible) {
+    Array.prototype.forEach.call(promos, function(el) { el.style.display = visible ? '' : 'none'; });
+    if (homePromo) homePromo.style.display = visible ? '' : 'none';
+  }
+  if (!u) { setVisible(true); return; }
+  if (u.role === 'musician' || u.role === 'admin') { setVisible(false); return; }
+  if (u.role !== 'pianist' && u.role !== 'both') { setVisible(false); return; }
+  if (ACCOMPANIST_PROMO_CHECK_USER === u.id && ACCOMPANIST_PROMO_CHECK) {
+    ACCOMPANIST_PROMO_CHECK.then(function(published) { setVisible(!published); });
+    return;
+  }
+  ACCOMPANIST_PROMO_CHECK_USER = u.id;
+  ACCOMPANIST_PROMO_CHECK = (async function() {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return false;
+    var result = await supabaseClient.from('pianist_profiles').select('id')
+      .eq('id', u.id).eq('is_published', true).maybeSingle();
+    if (result.error) {
+      console.warn('Could not check published accompanist profile:', result.error);
+      return false;
+    }
+    return !!result.data;
+  })();
+  ACCOMPANIST_PROMO_CHECK.then(function(published) { setVisible(!published); });
 }
 
 /* ---------- page mounting ---------- */
