@@ -61,14 +61,14 @@ function viewFind(c){
   var html='<div class="wrap page"><div class="page-head"><h1>Find an accompanist</h1><p>Discover collaborative pianists across the United States. Enter a city, state, or ZIP code to find accompanists within 50 miles, or browse the nationwide directory.</p></div>'+ 
   '<div class="filters" role="search">'+
     '<div class="f-q"><label for="fq">Search names, pieces or composers</label><input id="fq" type="search" placeholder="e.g. Brahms Cello Sonata, Schubert" value="'+esc(F.q)+'"></div>'+
-    '<div><label for="floc">City, state, or ZIP code</label><input id="floc" type="search" placeholder="e.g. Boston, MA or 02108" value="'+esc(F.loc)+'" autocomplete="postal-code"><div class="hint">Press Enter or leave this field to apply the location search.</div><div id="locmsg" aria-live="polite"></div><div class="hint">Location data powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Geoapify</a> · © OpenStreetMap contributors.</div></div>'+
+    '<div><label for="floc">City, state, or ZIP code</label><input id="floc" type="search" placeholder="e.g. Boston, MA or 02108" value="'+esc(F.loc)+'" autocomplete="postal-code"><div id="locmsg" aria-live="polite"></div><div class="hint">Location data powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Geoapify</a> · © OpenStreetMap contributors.</div></div>'+
   '</div><div class="active" id="active" aria-label="Active filters"></div><div class="count" id="count" aria-live="polite"></div><div class="grid" id="grid"></div></div>';
   return {title:"Find an accompanist – Accord",html:html,after:function(){LOC_DRAFT=F.loc;renderResults();if(F.loc&&!FROM&&!LOCBAD)commitLocation(F.loc);}};
 }
 function renderResults(){
   if(!$("#grid"))return;
   var r=fList();
-  var lm=$("#locmsg");if(lm){lm.innerHTML=LOCLOOKING?'<div class="loc-ok">Looking up location…</div>':LOCBAD?'<div class="loc-msg">Location lookup failed: '+esc(LOCERROR||"Please try City, State or a valid 5-digit ZIP code.")+'</div>':(F.loc?(FROM?'<div class="loc-ok">Showing accompanists within 50 miles of '+esc(FROM.name)+'</div>':'<div class="loc-ok">Enter a city or ZIP code, then press Enter.</div>'):'<div class="loc-ok">Browse all locations across the United States.</div>');}
+  var lm=$("#locmsg");if(lm){lm.innerHTML=LOCLOOKING?'<div class="loc-ok">Looking up location…</div>':LOCBAD?'<div class="loc-msg">Location lookup failed: '+esc(LOCERROR||"Please try City, State or a valid 5-digit ZIP code.")+'</div>':(F.loc?(FROM?'<div class="loc-ok">Showing accompanists within 50 miles of '+esc(FROM.name)+'</div>':''):'');}
   var chips=[],L={q:"Search: "+F.q,loc:F.loc};Object.keys(L).forEach(function(k){if(F[k]&&L[k])chips.push([k,L[k]])});
   $("#active").innerHTML=chips.length?chips.map(function(x){return '<button class="fchip" type="button" data-action="clear" data-k="'+x[0]+'" aria-label="Remove filter: '+esc(x[1])+'">'+esc(x[1])+' <span aria-hidden="true">✕</span></button>'}).join("")+(chips.length>1?'<button class="linkbtn" type="button" data-action="clear" data-k="all">Clear all</button>':''):"";
   $("#count").textContent=r.length+(r.length===1?" accompanist":" accompanists")+(F.loc&&FROM?" within 50 miles":"")+" match your search";
