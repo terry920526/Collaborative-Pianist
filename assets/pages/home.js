@@ -17,16 +17,8 @@ function viewHome() {
         '<a class="btn lg" href="become-accompanist.html">Become an Accompanist</a>' +
       '</div>' +
 
-      '<form class="search s4" data-form="heroSearch" role="search">' +
+      '<form class="search hero-search" data-form="heroSearch" role="search">' +
         '<label><span>City or ZIP code</span><input name="loc" type="text" placeholder="e.g. Los Angeles or 90001" autocomplete="off"></label>' +
-        '<label><span>Within</span><select name="r">' +
-          opts(RADII.map(function(r) {
-            return [r, r + " miles"];
-          }), 25) +
-        '</select></label>' +
-        '<label><span>You play or sing</span><select name="inst">' +
-          opts(INSTRUMENTS, "", "Any instrument") +
-        '</select></label>' +
         '<button class="btn primary" type="submit">Search</button>' +
       '</form>' +
 
@@ -295,15 +287,8 @@ async function loadHomeAccompanists() {
 FORMS.heroSearch = function(f) {
   var p = [];
   var loc = f.elements.loc.value.trim();
-  var i = f.elements.inst.value;
-
   if (loc) {
     p.push("loc=" + encodeURIComponent(loc));
-    p.push("r=" + f.elements.r.value);
-  }
-
-  if (i) {
-    p.push("inst=" + encodeURIComponent(i));
   }
 
   go("find.html" + (p.length ? "?" + p.join("&") : ""));
