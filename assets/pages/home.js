@@ -65,6 +65,7 @@ function viewHome() {
           }).join("") +
         '</div>' +
 
+        '<p class="note" id="homeAccompanistStatus" aria-live="polite"></p>' +
       '</section>' +
 
       '<section class="sec">' +
@@ -253,6 +254,10 @@ async function loadHomeAccompanists() {
         return cardHTML(p, "");
       }).join("");
 
+      if (status) {
+        status.textContent =
+          "Showing published accompanist profiles from Accord.";
+      }
     } else {
       if (status) {
         status.textContent =

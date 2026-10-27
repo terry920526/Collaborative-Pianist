@@ -1,59 +1,79 @@
-/* Page: admin.html – basic admin dashboard (prototype: demo admin only). */
-var TABS=[["overview","Overview"],["users","Users"],["profiles","Profiles"],["bookings","Bookings"],["reviews","Reviews"],["reports","Reports"],["emails","Emails"]];
-function pct(a,b){return b?Math.round(a/b*100)+"%":"—"}
-function viewAdmin(c){
-  var g=guardAdmin();if(g)return g;
-  var tab=c.params.get("tab")||"overview",body="";
-  var real=DB.bookings.filter(function(b){return b.status!=="demo"});
-  if(tab==="overview"){
-    var musicians=DB.users.filter(function(u){return u.role==="musician"}),pians=DB.users.filter(function(u){return u.role==="pianist"});
-    var done=real.filter(function(b){return b.status==="completed"}),conf=real.filter(function(b){return b.status==="confirmed"||b.status==="completed"});
-    var paid=real.filter(function(b){return b.pay==="paid"});
-    var avg=conf.length?conf.reduce(function(s,b){return s+b.total},0)/conf.length:0;
-    var comm=done.reduce(function(s,b){return s+b.commission},0),collected=done.filter(function(b){return b.commissionCollected}).reduce(function(s,b){return s+b.commission},0);
-    var by={};real.forEach(function(b){by[b.fromId]=(by[b.fromId]||0)+1});var ids=Object.keys(by),repeat=ids.filter(function(k){return by[k]>1}).length;
-    var cac=musicians.length&&DB.admin.spend?money(DB.admin.spend/musicians.length):"—";
-    body='<div class="stats four">'+[
-      [pians.length,"registered accompanists"],[musicians.length,"registered musicians"],[real.length,"booking requests"],[pct(paid.length,real.length),"requests that became paid bookings"],
-      [money(avg),"average booking value"],[money(conf.length?conf.reduce(function(s,b){return s+b.commission},0)/conf.length:0),"revenue per booking"],[pct(repeat,ids.length),"repeat booking rate"],[cac,"customer acquisition cost"]
-    ].map(function(x){return '<div class="stat"><b>'+x[0]+'</b><span>'+x[1]+'</span></div>'}).join("")+'</div>'+
-    '<div class="box"><h3 style="font-size:20px;margin-bottom:8px">Commission ('+Math.round(COMMISSION*100)+'%)</h3><p>Earned on completed bookings: <b>'+money(comm)+'</b>. Collected: <b>'+money(collected)+'</b>. Outstanding: <b>'+money(comm-collected)+'</b>.</p><p class="note" style="margin-top:6px">Commission is tracked but not collected automatically in the validation phase.</p></div>'+
-    '<form class="box form" data-form="spend" style="margin-top:16px" novalidate><div class="field" style="max-width:260px"><label for="sp">Marketing spend to date ($)</label><input id="sp" name="sp" type="number" min="0" value="'+(DB.admin.spend||0)+'"><small>Used to estimate customer acquisition cost per registered musician.</small></div><div><button class="btn small" type="submit">Save</button></div></form>'+
-    '<p class="note" style="margin-top:16px">Figures cover accounts and bookings stored in this browser. The 16 sample accompanists are not counted.</p>';
-  }else if(tab==="users"){
-    body=tbl(["Name","Email","Role","Joined","Status",""],DB.users.map(function(u){
-      return [esc(u.name),esc(u.email),esc(u.role),esc(new Date(u.created).toLocaleDateString()),u.suspended?'<span class="status declined">Suspended</span>':'<span class="status accepted">Active</span>',
-        u.id===me().id?'—':'<button class="btn small" type="button" data-action="suspend-user" data-id="'+u.id+'">'+(u.suspended?"Restore":"Suspend")+'</button>']}));
-  }else if(tab==="profiles"){
-    body=tbl(["Accompanist","City","Level","Rates","Status",""],DB.custom.map(function(p){
-      return ['<a href="'+pianistUrl(p.id)+'">'+esc(p.name)+'</a>',esc(p.city),esc(p.level),money(minRate(p))+" from",p.suspended?'<span class="status declined">Suspended</span>':p.hidden?'<span class="status pending">Hidden by owner</span>':'<span class="status accepted">Listed</span>',
-        '<button class="btn small" type="button" data-action="suspend-profile" data-id="'+p.id+'">'+(p.suspended?"Restore":"Suspend")+'</button>']}));
-  }else if(tab==="bookings"){
-    body=tbl(["Date","Musician","Accompanist","Service","Total","Commission","Status","Payment",""],DB.bookings.map(function(b){
-      var can=b.status==="completed"&&b.pay==="paid";
-      return [esc(fmtShort(b.date)),esc(b.fromName),esc(b.pname),esc(b.service),money(b.total),money(b.commission),statusChip(b.status),b.pay==="paid"?"Paid":"Unpaid",
-        can?'<button class="btn small" type="button" data-action="commission" data-id="'+b.id+'">'+(b.commissionCollected?"Collected ✓":"Mark commission collected")+'</button>':'']}));
-  }else if(tab==="reviews"){
-    body=tbl(["Accompanist","Reviewer","Overall","Review","Status",""],DB.revs.map(function(r){var p=getP(r.pid);
-      return [esc(p?p.name:""),esc(r.name),"★ "+r.scores.overall,esc(r.text),r.hidden?'<span class="status declined">Hidden</span>':'<span class="status accepted">Visible</span>','<button class="btn small" type="button" data-action="hide-review" data-id="'+r.id+'">'+(r.hidden?"Restore":"Hide")+'</button>']}));
-  }else if(tab==="reports"){
-    body=tbl(["When","Profile","Reason","Details","Status",""],DB.reports.map(function(r){
-      return [when(r.ts),'<a href="'+pianistUrl(r.pid)+'">'+esc(r.pname)+'</a>',esc(r.reason),esc(r.details),r.status==="open"?'<span class="status pending">Open</span>':'<span class="status accepted">Resolved</span>','<button class="btn small" type="button" data-action="resolve" data-id="'+r.id+'">'+(r.status==="open"?"Resolve":"Reopen")+'</button>']}));
-  }else if(tab==="emails"){
-    body='<p class="note" style="margin-bottom:14px">Emails Accord would have sent. A live site connects these to an email service.</p>'+(DB.notifs.length?DB.notifs.map(function(n){return '<div class="email"><h4>'+esc(n.subject)+'</h4><div class="to">To: '+esc(n.email)+' · '+when(n.ts)+'</div><p>'+esc(n.body)+'</p></div>'}).join(""):'<div class="empty" style="grid-column:auto"><h3>No emails yet</h3></div>');
+/* Accord live administrator dashboard. Access is checked by Supabase, not browser demo roles. */
+(function () {
+  var activeTab = new URLSearchParams(location.search).get('tab') || 'overview';
+  var cache = { users: [], profiles: [], bookings: [] };
+  var tabs = [['overview','Overview'],['bookings','Bookings'],['profiles','Profile approvals'],['users','Users']];
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function money(v) { var n = Number(v); return Number.isFinite(n) ? n.toLocaleString(undefined,{style:'currency',currency:'USD'}) : '—'; }
+  function date(v) { if (!v) return '—'; var d = new Date(v); return Number.isNaN(d.getTime()) ? esc(v) : d.toLocaleString(); }
+  function name(u) { return [u && u.first_name, u && u.last_name].filter(Boolean).join(' ') || (u && u.email) || '—'; }
+  function setMessage(msg, bad) { var el = document.getElementById('admin-message'); if (el) { el.textContent = msg; el.className = bad ? 'note declined' : 'note'; } }
+  function table(head, rows) {
+    if (!rows.length) return '<div class="empty" style="grid-column:auto"><h3>Nothing here yet</h3><p>New records will appear here when available.</p></div>';
+    return '<div class="tbl-wrap"><table class="tbl"><thead><tr>'+head.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
   }
-  var html='<div class="wrap page"><div class="page-head"><h1>Admin dashboard</h1><p>Manage the marketplace. Prototype: the demo admin account stands in for a real administrator login.</p></div><div class="subtabs">'+TABS.map(function(t){return '<a class="pill" href="admin.html?tab='+t[0]+'"'+(t[0]===tab?' aria-current="page"':'')+'>'+t[1]+'</a>'}).join("")+'</div>'+body+'</div>';
-  return {title:"Admin – Accord",html:html};
-}
-function tbl(head,rows){
-  if(!rows.length)return '<div class="empty" style="grid-column:auto"><h3>Nothing here yet</h3></div>';
-  return '<div class="tbl-wrap"><table class="tbl"><thead><tr>'+head.map(function(h){return '<th>'+h+'</th>'}).join("")+'</tr></thead><tbody>'+rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>'}).join("")+'</tr>'}).join("")+'</tbody></table></div>';
-}
-function byId(list,id){return list.filter(function(x){return x.id===id})[0]}
-ACTIONS["suspend-user"]=function(b){var u=byId(DB.users,b.dataset.id);u.suspended=!u.suspended;persist("users");toast(u.suspended?"Account suspended":"Account restored");rerender()};
-ACTIONS["suspend-profile"]=function(b){var p=byId(DB.custom,b.dataset.id);p.suspended=!p.suspended;persist("custom");toast(p.suspended?"Profile suspended":"Profile restored");rerender()};
-ACTIONS.commission=function(b){var x=byId(DB.bookings,b.dataset.id);x.commissionCollected=!x.commissionCollected;persist("bookings");rerender()};
-ACTIONS["hide-review"]=function(b){var r=byId(DB.revs,b.dataset.id);r.hidden=!r.hidden;persist("revs");rerender()};
-ACTIONS.resolve=function(b){var r=byId(DB.reports,b.dataset.id);r.status=r.status==="open"?"resolved":"open";persist("reports");rerender()};
-FORMS.spend=function(f){DB.admin.spend=Math.max(0,+f.elements.sp.value||0);persist("admin");toast("Saved");rerender()};
-mount(viewAdmin,"");
+  function layout(content) {
+    document.getElementById('view').innerHTML = '<div class="wrap page"><div class="page-head"><h1>Accord administration</h1><p>Live information from your Accord database.</p></div><div class="subtabs">'+tabs.map(function(t){return '<a class="pill" href="admin.html?tab='+t[0]+'" '+(t[0]===activeTab?'aria-current="page"':'')+'>'+t[1]+'</a>';}).join('')+'</div><p id="admin-message" class="note" role="status"></p>'+content+'</div>';
+    document.title = 'Admin – Accord';
+  }
+  async function loadData() {
+    var usersRes = await supabaseClient.from('profiles').select('id,first_name,last_name,role,city,state,created_at').order('created_at',{ascending:false});
+    if (usersRes.error) throw usersRes.error;
+    cache.users = usersRes.data || [];
+    var profilesRes = await supabaseClient.from('pianist_profiles').select('id,hourly_rate,years_experience,instruments,specialties,available_for_hire,is_published,profile_details,created_at').order('created_at',{ascending:false});
+    if (profilesRes.error) throw profilesRes.error;
+    cache.profiles = profilesRes.data || [];
+    var bookingsRes = await supabaseClient.from('booking_requests').select('*').order('created_at',{ascending:false});
+    if (bookingsRes.error) throw bookingsRes.error;
+    cache.bookings = bookingsRes.data || [];
+  }
+  function render() {
+    var body = '';
+    if (activeTab === 'overview') {
+      var pending = cache.profiles.filter(function(p){return !p.is_published;}).length;
+      var requested = cache.bookings.filter(function(b){return ['requested','pending'].indexOf(String(b.status||'').toLowerCase())>=0;}).length;
+      body = '<div class="stats four"><div class="stat"><b>'+cache.users.length+'</b><span>Registered users</span></div><div class="stat"><b>'+cache.profiles.length+'</b><span>Accompanist profiles</span></div><div class="stat"><b>'+pending+'</b><span>Profiles not published</span></div><div class="stat"><b>'+cache.bookings.length+'</b><span>Total booking requests</span></div></div><div class="box" style="margin-top:18px"><h3>Needs attention</h3><p>'+requested+' booking request(s) currently marked requested/pending, and '+pending+' profile(s) not published.</p><p>Use the tabs above to review individual records.</p></div>';
+    } else if (activeTab === 'users') {
+      body = table(['Name','User ID','Role','Location','Created'], cache.users.map(function(u){return [esc(name(u)), '<small>'+esc(u.id)+'</small>', esc(u.role||'—'), esc([u.city,u.state].filter(Boolean).join(', ')||'—'), date(u.created_at)];}));
+    } else if (activeTab === 'profiles') {
+      body = '<p>Profiles with “Not published” status are not currently published. Publishing makes the profile eligible to appear publicly, subject to the existing site search rules.</p>'+table(['Accompanist','Rate','Experience','Status','Action'], cache.profiles.map(function(p){var u=cache.users.find(function(x){return x.id===p.id;})||{}; var details=p.profile_details||{}; var isPub=!!p.is_published; return [esc(details.display_name||name(u)), money(p.hourly_rate)+' / hour', esc(p.years_experience==null?'—':p.years_experience+' years'), isPub?'<span class="status accepted">Published</span>':'<span class="status pending">Not published</span>', '<button class="btn small" type="button" data-admin-action="publish-profile" data-id="'+esc(p.id)+'" data-publish="'+(!isPub)+'">'+(isPub?'Unpublish':'Approve & publish')+'</button>'];}));
+    } else if (activeTab === 'bookings') {
+      body = table(['Created','Musician ID','Accompanist ID','Date','Time','Status','Booking ID'], cache.bookings.map(function(b){return [date(b.created_at),'<small>'+esc(b.musician_id||'—')+'</small>','<small>'+esc(b.pianist_id||'—')+'</small>',esc(b.date||b.requested_date||'—'),esc(b.time||b.requested_time||'—'),'<span class="status '+(String(b.status).toLowerCase()==='confirmed'?'accepted':'pending')+'">'+esc(b.status||'—')+'</span>','<small>'+esc(b.id||'—')+'</small>'];}));
+    }
+    layout(body);
+  }
+  async function start() {
+    layout('<div class="box"><h3>Checking administrator access…</h3><p>Please wait.</p></div>');
+    try {
+      await AUTH_READY;
+      var sessionResult = await supabaseClient.auth.getSession();
+      var session = sessionResult.data && sessionResult.data.session;
+      if (!session) { location.replace('index.html?auth=login&next='+encodeURIComponent('admin.html')); return; }
+      var check = await supabaseClient.rpc('is_accord_admin');
+      if (check.error) throw check.error;
+      if (check.data !== true) {
+        layout('<div class="box"><h2>Access denied</h2><p>This account is not authorized to use the Accord administrator dashboard.</p><p><a class="btn" href="index.html">Return to Accord</a></p></div>'); return;
+      }
+      await loadData(); render();
+    } catch (e) {
+      console.error('Admin dashboard failed to load:', e);
+      layout('<div class="box"><h2>Could not load administrator data</h2><p>The administrator check or database query failed. Confirm the SQL policies in the setup instructions have been applied, then reload this page.</p><p class="note">'+esc(e && e.message || 'Unknown error')+'</p></div>');
+    }
+  }
+  document.addEventListener('click', async function(e) {
+    var b = e.target.closest('[data-admin-action]'); if (!b) return;
+    if (b.dataset.adminAction !== 'publish-profile') return;
+    var id=b.dataset.id, publish=b.dataset.publish==='true';
+    if (!id) return;
+    b.disabled=true;
+    try {
+      var result = await supabaseClient.from('pianist_profiles').update({is_published:publish}).eq('id',id).select('id,is_published').maybeSingle();
+      if (result.error) throw result.error;
+      if (!result.data) throw new Error('No profile was updated. Check the admin update policy in Supabase.');
+      var p=cache.profiles.find(function(x){return x.id===id;}); if(p)p.is_published=!!result.data.is_published;
+      render(); setMessage(publish?'Profile approved and published.':'Profile unpublished.',false);
+    } catch(err) { console.error(err); b.disabled=false; setMessage('Could not update profile: '+(err.message||'Unknown error'),true); }
+  });
+  mount(function(){ return {title:'Admin – Accord',html:'<div class="wrap page"><div class="box"><h1>Accord administration</h1><p>Checking administrator access…</p></div></div>'}; }, '');
+  start();
+})();
