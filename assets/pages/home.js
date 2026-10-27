@@ -256,12 +256,12 @@ async function loadHomeAccompanists() {
 
       if (status) {
         status.textContent =
-          "Showing published accompanist profiles from Accord.";
+          "Showing profiles approved by Accord.";
       }
     } else {
       if (status) {
         status.textContent =
-          "Example profiles are shown while accompanists begin publishing their listings.";
+          "No profiles are available in your area.";
       }
     }
 
