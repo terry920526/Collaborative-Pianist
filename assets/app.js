@@ -537,14 +537,36 @@ function bookingRow(b){
 }
 function dashShell(tab,inner){
   var u=me(),n=attention(),nu=unread(),mp=myProfile(),pian=u.role==="pianist"||mp;
-  var links=[["","Overview","dashboard.html"],["bookings","Bookings","bookings.html"]];
+
+  var links=[
+    ["","Overview","dashboard.html"],
+    ["bookings","Bookings","bookings.html"],
+    ["messages","Messages","messages.html"]
+  ];
+
   if(pian)links.push(["profile","My profile","my-profile.html"]);
-  links.push(["reviews","Reviews","reviews.html"],["payments","Payments","payments.html"]);
+
+  links.push(
+    ["reviews","Reviews","reviews.html"],
+    ["payments","Payments","payments.html"]
+  );
+
   if(!pian)links.push(["saved","Shortlist","saved.html"]);
-  links.push(["notifications","Notifications","notifications.html"],["settings","Settings","settings.html"]);
+
+  links.push(
+    ["notifications","Notifications","notifications.html"],
+    ["settings","Settings","settings.html"]
+  );
+
   return '<div class="wrap page"><div class="dash"><nav class="tabs" aria-label="Account">'+links.map(function(l){
-    var b=l[0]==="bookings"&&n?'<span class="badge">'+n+'</span>':l[0]==="notifications"&&nu?'<span class="badge">'+nu+'</span>':'';
+    var b=l[0]==="bookings"&&n
+      ?'<span class="badge">'+n+'</span>'
+      :l[0]==="notifications"&&nu
+      ?'<span class="badge">'+nu+'</span>'
+      :'';
+
     return '<a href="'+l[2]+'"'+(l[0]===tab?' aria-current="page"':'')+'>'+l[1]+b+'</a>';
+
   }).join("")+'</nav><div>'+inner+'</div></div></div>';
 }
 function guard(){if(!me())return {redirect:"index.html?auth=login&next="+encodeURIComponent(thisPage())};return null}
