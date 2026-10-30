@@ -51,6 +51,7 @@ function viewProfile(c){
      (own?'<h2>This is your profile</h2><p class="note" style="margin:6px 0 16px">Musicians see a booking button here.</p><a class="btn primary block" href="my-profile.html">Edit your profile</a><a class="btn block" style="margin-top:10px" href="bookings.html">See your bookings</a>':
      '<div class="price">'+money(minRate(p))+' <small>per hour, from</small></div><div class="meta" style="margin:2px 0 14px">'+esc(p.level)+' · '+esc(p.city)+'</div>'+
      '<a class="btn primary block lg" href="book.html?pianist='+encodeURIComponent(p.id)+'">Request a booking</a>'+
+     '<a class="btn block lg" style="margin-top:10px" href="messages.html?to='+encodeURIComponent(p.ownerId)+'">Message</a>'+
      '<p class="note" style="margin-top:12px">'+(p.sample?'Prototype: this is a sample accompanist, so nobody will reply.':'The accompanist will accept, decline, or propose another time. You will not be charged by Accord when you send a request.')+'</p>')+
    '</aside></div></div>'+
    (own?'':'<div class="mobile-cta"><a class="btn primary" href="book.html?pianist='+encodeURIComponent(p.id)+'">Request a booking</a></div>');
