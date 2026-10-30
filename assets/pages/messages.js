@@ -153,6 +153,17 @@ async function loadMessageConversations() {
       return;
     }
 
+    // Get recipient from URL
+    var requestedRecipient = new URLSearchParams(
+      window.location.search
+    ).get("to");
+
+    if (requestedRecipient === user.id) {
+      showMessageError("You cannot message yourself.");
+      requestedRecipient = null;
+    }
+
+    // Load all messages belonging to this user
     var result = await supabaseClient
       .from("messages")
       .select("id,sender_id,recipient_id,body,created_at,read_at")
@@ -178,12 +189,21 @@ async function loadMessageConversations() {
       }
     });
 
+    // Include a new recipient even if no conversation exists
+    if (
+      requestedRecipient &&
+      otherIds.indexOf(requestedRecipient) === -1
+    ) {
+      otherIds.push(requestedRecipient);
+    }
+
     MESSAGE_PROFILES = {};
 
+    // Load participant profiles
     if (otherIds.length) {
       var profilesResult = await supabaseClient
         .from("profiles")
-        .select("id,first_name,last_name")
+        .select("id,first_name,last_name,role")
         .in("id", otherIds);
 
       if (profilesResult.error) {
@@ -195,15 +215,37 @@ async function loadMessageConversations() {
       });
     }
 
+    // Validate requested recipient
+    if (requestedRecipient) {
+      var recipient = MESSAGE_PROFILES[requestedRecipient];
+
+      if (!recipient) {
+        showMessageError("This Accord account could not be found.");
+        requestedRecipient = null;
+      } else if (
+        recipient.role !== "pianist" &&
+        recipient.role !== "both"
+      ) {
+        showMessageError("This user is not available for messaging.");
+        requestedRecipient = null;
+      }
+    }
+
     renderConversationList();
 
-    if (
+    // Open requested conversation or latest existing conversation
+    if (requestedRecipient) {
+      renderMessageThread(requestedRecipient);
+
+    } else if (
       MESSAGE_ACTIVE_USER &&
       otherIds.indexOf(MESSAGE_ACTIVE_USER) !== -1
     ) {
       renderMessageThread(MESSAGE_ACTIVE_USER);
+
     } else if (otherIds.length) {
       renderMessageThread(otherIds[0]);
+
     } else {
       renderEmptyConversation();
     }
@@ -214,13 +256,6 @@ async function loadMessageConversations() {
     showMessageError(
       "We couldn't load your messages. Please refresh the page and try again."
     );
-
-    var list = document.getElementById("conversation-list");
-
-    if (list) {
-      list.innerHTML =
-        '<p class="note">Messages could not be loaded.</p>';
-    }
 
   } finally {
     MESSAGE_LOADING = false;
