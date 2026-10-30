@@ -853,3 +853,8 @@ width: 100%;
 
 }
 
+/* Dark mode: improve readability of service rate inputs */
+html[data-theme="dark"] .svc-edit input[type="number"] {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
