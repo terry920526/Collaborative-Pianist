@@ -16,6 +16,12 @@ function viewMyProfile(){
   var inner='<h1>'+(existing?'My profile':'Create your profile')+'</h1><p class="lede">'+(existing?'Keep it current so musicians know what you offer.':'This is what musicians see when they search. Open to students and professional accompanists.')+'</p>'+
    (existing?'<div class="box" style="margin-bottom:20px"><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:8px"><b>Profile strength</b><span>'+pct+'%</span></div><div class="bar" role="progressbar" aria-valuenow="'+pct+'" aria-valuemin="0" aria-valuemax="100"><i style="width:'+pct+'%"></i></div><p style="margin-top:12px"><a href="'+pianistUrl(p.id)+'">View public profile</a>'+(p.suspended?' · <b style="color:var(--err)">Suspended by Accord</b>':'')+'</p></div>':'')+
    '<form class="box form" data-form="profile" novalidate>'+
+    '<div class="profile-tabs" role="tablist" aria-label="Profile sections">'+
+      '<button type="button" class="profile-tab active" role="tab" aria-selected="true" data-profile-tab="about">About</button>'+
+      '<button type="button" class="profile-tab" role="tab" aria-selected="false" data-profile-tab="location">Location</button>'+
+      '<button type="button" class="profile-tab" role="tab" aria-selected="false" data-profile-tab="repertoire">Repertoire</button>'+
+      '<button type="button" class="profile-tab" role="tab" aria-selected="false" data-profile-tab="additional">Additional Information</button>'+
+    '</div>'+
     '<div class="fsec"><h3>Photo and basics</h3><div class="photo-up"><div id="photoPrev">'+avatar(Object.assign({},p,{id:p.id||"new",photo:PHOTO}),"xl")+'</div><div><label class="btn small" for="photo" style="cursor:pointer">Upload headshot</label><input id="photo" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px"> <button class="linkbtn" type="button" data-action="photo-clear">Remove</button><div class="hint">A clear, professional headshot. It is resized to fit.</div></div></div>'+
     '<div class="two" style="margin-top:14px"><div class="field"><label for="pn">Display name</label><input id="pn" name="pn" maxlength="40" value="'+esc(p.name)+'"></div><div class="field"><label for="pl">Experience level</label><select id="pl" name="pl">'+opts(LEVELS,p.level)+'</select></div></div>'+
     '<div class="two" style="margin-top:12px"><div class="field"><label for="py">Years of experience</label><input id="py" name="py" type="number" min="0" max="70" value="'+p.exp+'"></div><div></div></div></div>'+
