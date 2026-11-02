@@ -317,13 +317,6 @@ FORMS.profile = async function(f) {
     });
   }
 
-  var avail = {};
-
-  vals(f, "av").forEach(function(v) {
-    var a = v.split("|");
-    (avail[a[0]] = avail[a[0]] || []).push(a[1]);
-  });
-
   var place = null;
   var locationErrorMessage = "";
   try { place = await geocodeAccompanistLocation(city, state, zip); }
@@ -333,35 +326,50 @@ FORMS.profile = async function(f) {
   }
 
 
-  var profile = {
-    id: u.id,
-    ownerId: u.id,
-    name: name,
-    city: city,
-    state: state,
-    zip: zip,
-    lat: place ? place.lat : null,
-    lng: place ? place.lng : null,
-    level: g("pl"),
-    exp: +g("py") || 0,
-    specialties: spec,
-    inst: inst,
-    purposes: purp,
-    services: services,
-    travelFee: fee,
-    travelRadius: radius,
-    studio: studio,
-    languages: langs,
-    education: g("pe"),
-    bio: bio,
-    rep: rep,
-    avail: avail,
-    videos: videos,
-    photo: PHOTO,
-    hidden: f.elements.phid.checked,
-    suspended: false,
-    sample: false
-  };
+var profile = {
+  id: u.id,
+  ownerId: u.id,
+  name: name,
+  city: city,
+  state: state,
+  zip: zip,
+  lat: place ? place.lat : null,
+  lng: place ? place.lng : null,
+
+  // Preserve the existing experience level as legacy data.
+  level: existing && existing.level
+    ? existing.level
+    : "Emerging professional",
+
+  exp: +g("py") || 0,
+  specialties: spec,
+  inst: inst,
+
+  // Keep previously saved purposes without requiring users to edit them.
+  purposes: existing && existing.purposes
+    ? existing.purposes
+    : [],
+
+  services: services,
+  travelFee: fee,
+  travelRadius: 50,
+  studio: studio,
+  languages: langs,
+  education: g("pe"),
+  bio: bio,
+  rep: rep,
+
+  // Preserve existing availability data, but no longer edit it here.
+  avail: existing && existing.avail
+    ? existing.avail
+    : {},
+
+  videos: videos,
+  photo: PHOTO,
+  hidden: f.elements.phid.checked,
+  suspended: false,
+  sample: false
+};
 
   var rates = Object.keys(services).map(function(s) {
     return services[s];
@@ -369,23 +377,28 @@ FORMS.profile = async function(f) {
 
   var lowestRate = Math.min.apply(null, rates);
 
-  var details = {
-    display_name: profile.name,
-    level: profile.level,
-    zip: profile.zip,
-    latitude: profile.lat,
-    longitude: profile.lng,
-    services: profile.services,
-    purposes: profile.purposes,
-    travelFee: profile.travelFee,
-    travelRadius: profile.travelRadius,
-    studio: profile.studio,
-    languages: profile.languages,
-    education: profile.education,
-    repertoire: profile.rep,
-    videos: profile.videos,
-    availability: profile.avail
-  };
+var details = {
+  display_name: profile.name,
+
+  // Retain legacy information without displaying it in the new editor.
+  level: profile.level,
+  purposes: profile.purposes,
+  availability: profile.avail,
+
+  zip: profile.zip,
+  latitude: profile.lat,
+  longitude: profile.lng,
+
+  services: profile.services,
+  travelFee: profile.travelFee,
+  travelRadius: 50,
+  studio: profile.studio,
+
+  languages: profile.languages,
+  education: profile.education,
+  repertoire: profile.rep,
+  videos: profile.videos
+};
 
   var saveButton = f.querySelector('button[type="submit"]');
 
