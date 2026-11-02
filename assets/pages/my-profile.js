@@ -23,8 +23,8 @@ function viewMyProfile(){
     '<div class="checks" style="margin-top:12px"><label><input type="checkbox" name="studio"'+(p.studio?' checked':'')+'> I work at a studio or home</label></div>'+
     '<div class="two" style="margin-top:12px"><div class="field"><label for="pr">I will travel up to (miles)</label><input id="pr" name="pr" type="number" min="0" max="100" value="'+p.travelRadius+'"><small>Enter 0 if you do not travel.</small></div><div class="field"><label for="pt">Travel fee ($)</label><input id="pt" name="pt" type="number" min="0" max="200" value="'+p.travelFee+'"></div></div></div>'+
     '<div class="fsec"><h3>Services and rates</h3><p class="hint" style="margin-bottom:10px">Select the services you offer and set your hourly rate for each.</p>'+svc+'</div>'+
-    '<div class="fsec"><h3>What you accompany</h3><div class="field"><span class="lab">Instruments and voice types</span><div class="checks">'+checks("pi",INSTRUMENTS,p.inst)+'</div></div>'+
-    '<div class="field" style="margin-top:12px"><span class="lab">Musical specialties</span><div class="checks">'+checks("ps",SPECIALTIES,p.specialties)+'</div></div>'+
+    '<div class="fsec"><h3>Specialization</h3><div class="field"><span class="lab">Instruments</span><div class="checks">'+checks("pi",INSTRUMENTS,p.inst)+'</div></div>'+
+    '<div class="field" style="margin-top:12px"><span class="lab">Genre</span><div class="checks">'+checks("ps",SPECIALTIES,p.specialties)+'</div></div>'+
     '<div class="field" style="margin-top:12px"><span class="lab">Good for</span><div class="checks">'+checks("pp",PURPOSES,p.purposes)+'</div></div>'+
     '<div class="field" style="margin-top:12px"><span class="lab">Languages</span><div class="checks">'+checks("pg",LANGUAGES,p.languages)+'</div></div></div>'+
     '<div class="fsec"><h3>About you</h3><div class="field"><label for="pe">Education</label><input id="pe" name="pe" maxlength="160" value="'+esc(p.education)+'" placeholder="Degrees and institutions"></div>'+
