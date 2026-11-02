@@ -22,16 +22,84 @@ function viewMyProfile(){
       '<button type="button" class="profile-tab" role="tab" aria-selected="false" data-profile-tab="repertoire">Repertoire</button>'+
       '<button type="button" class="profile-tab" role="tab" aria-selected="false" data-profile-tab="additional">Additional Information</button>'+
     '</div>'+
+
+    /* ABOUT TAB */
     '<div class="profile-panel active" data-profile-panel="about">'+
-    '<div class="fsec"><h3>Photo and basics</h3>'+<div class="photo-up"><div id="photoPrev">'+avatar(Object.assign({},p,{id:p.id||"new",photo:PHOTO}),"xl")+'</div><div><label class="btn small" for="photo" style="cursor:pointer">Upload headshot</label><input id="photo" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px"> <button class="linkbtn" type="button" data-action="photo-clear">Remove</button><div class="hint">A clear, professional headshot. It is resized to fit.</div></div></div>'+
-    '<div class="two" style="margin-top:14px"><div class="field"><label for="pn">Display name</label><input id="pn" name="pn" maxlength="40" value="'+esc(p.name)+'"></div><div class="field"><label for="pl">Experience level</label><select id="pl" name="pl">'+opts(LEVELS,p.level)+'</select></div></div>'+
-    '<div class="two" style="margin-top:12px"><div class="field"><label for="py">Years of experience</label><input id="py" name="py" type="number" min="0" max="70" value="'+p.exp+'"></div><div></div></div></div>'+
+
+    '<div class="fsec"><h3>Profile Photo</h3>'+
+      '<div class="photo-up">'+
+        '<div id="photoPrev">'+avatar(Object.assign({},p,{id:p.id||"new",photo:PHOTO}),"xl")+'</div>'+
+        '<div>'+
+          '<label class="btn small" for="photo" style="cursor:pointer">Upload headshot</label>'+
+          '<input id="photo" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px">'+
+          '<button class="linkbtn" type="button" data-action="photo-clear">Remove</button>'+
+          '<div class="hint">A clear, professional headshot. It is resized to fit.</div>'+
+        '</div>'+
+      '</div>'+
     '</div>'+
+
+    '<div class="fsec"><h3>Basic Information</h3>'+
+      '<div class="two">'+
+        '<div class="field"><label for="pn">Display name</label><input id="pn" name="pn" maxlength="40" value="'+esc(p.name)+'"></div>'+
+        '<div class="field"><label for="py">Years of experience</label><input id="py" name="py" type="number" min="0" max="70" value="'+p.exp+'"></div>'+
+      '</div>'+
+      '<div class="field" style="margin-top:12px">'+
+        '<span class="lab">Languages spoken</span>'+
+        '<div class="checks">'+checks("pg",LANGUAGES,p.languages)+'</div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="fsec"><h3>Education and Biography</h3>'+
+      '<div class="field">'+
+        '<label for="pe">Education</label>'+
+        '<input id="pe" name="pe" maxlength="160" value="'+esc(p.education)+'" placeholder="Degrees and institutions">'+
+      '</div>'+
+      '<div class="field" style="margin-top:12px">'+
+        '<label for="pb">Biography</label>'+
+        '<textarea id="pb" name="pb" rows="5" maxlength="500" placeholder="Your musical background and specialties">'+esc(p.bio)+'</textarea>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="fsec"><h3>Services and Rates</h3>'+
+      '<p class="hint" style="margin-bottom:10px">Select the services you offer and set your hourly rate for each.</p>'+
+      svc+
+    '</div>'+
+
+    '</div>'+
+
+    /* LOCATION TAB */
     '<div class="profile-panel" data-profile-panel="location">'+
-    '<div class="fsec"><h3>Location and service area</h3><div class="two"><div class="field"><label for="pc">City</label><input id="pc" name="pc" maxlength="80" value="'+esc(p.city||"")+'" placeholder="e.g. Boston"></div><div class="field"><label for="psloc">State</label><input id="psloc" name="psloc" maxlength="40" value="'+esc(p.state||"")+'" placeholder="e.g. Massachusetts or MA"></div></div><div class="field" style="margin-top:12px"><label for="pz">ZIP code <small style="display:inline">(optional)</small></label><input id="pz" name="pz" maxlength="5" inputmode="numeric" value="'+esc(p.zip||"")+'" placeholder="5-digit ZIP code"><small>Use your city and state, plus an optional ZIP code, to help musicians find you.</small></div>'+
-    '<div class="checks" style="margin-top:12px"><label><input type="checkbox" name="studio"'+(p.studio?' checked':'')+'> I work at a studio or home</label></div>'+
-    '<div class="two" style="margin-top:12px"><div class="field"><label for="pr">I will travel up to (miles)</label><input id="pr" name="pr" type="number" min="0" max="100" value="'+p.travelRadius+'"><small>Enter 0 if you do not travel.</small></div><div class="field"><label for="pt">Travel fee ($)</label><input id="pt" name="pt" type="number" min="0" max="200" value="'+p.travelFee+'"></div></div></div>'+
-    '<div class="fsec"><h3>Services and rates</h3><p class="hint" style="margin-bottom:10px">Select the services you offer and set your hourly rate for each.</p>'+svc+'</div>'+
+
+    '<div class="fsec"><h3>Base Location</h3>'+
+      '<div class="two">'+
+        '<div class="field"><label for="pc">City</label><input id="pc" name="pc" maxlength="80" value="'+esc(p.city||"")+'" placeholder="e.g. Los Angeles"></div>'+
+        '<div class="field"><label for="psloc">State</label><input id="psloc" name="psloc" maxlength="40" value="'+esc(p.state||"")+'" placeholder="e.g. California"></div>'+
+      '</div>'+
+      '<div class="field" style="margin-top:12px">'+
+        '<label for="pz">ZIP Code</label>'+
+        '<input id="pz" name="pz" type="text" maxlength="5" inputmode="numeric" value="'+esc(p.zip||"")+'" placeholder="5-digit ZIP code" required>'+
+        '<small>Your ZIP code helps musicians locate your base location accurately.</small>'+
+      '</div>'+
+      '<div class="checks" style="margin-top:12px">'+
+        '<label><input type="checkbox" name="studio"'+(p.studio?' checked':'')+'> I work at a studio or home</label>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="fsec"><h3>Travel Information</h3>'+
+      '<div class="field">'+
+        '<label>Travel Radius</label>'+
+        '<input type="text" value="50 miles" disabled>'+
+        '<small>Accord automatically sets your service radius to 50 miles.</small>'+
+        '<input type="hidden" name="pr" value="50">'+
+      '</div>'+
+      '<div class="field" style="margin-top:12px">'+
+        '<label for="pt">Travel Fee ($ per mile)</label>'+
+        '<input id="pt" name="pt" type="number" min="0" max="200" step="0.01" value="'+p.travelFee+'">'+
+        '<small>Enter the additional fee you charge for each mile traveled from your base location.</small>'+
+      '</div>'+
+    '</div>'+
+
+    '</div>'+
     '<div class="profile-panel" data-profile-panel="repertoire">'+
     '<div class="fsec"><h3>Specialization</h3><div class="field"><span class="lab">Instruments</span><div class="checks">'+checks("pi",INSTRUMENTS,p.inst)+'</div></div>'+
     '<div class="field" style="margin-top:12px"><span class="lab">Genre</span><div class="checks">'+checks("ps",SPECIALTIES,p.specialties)+'</div></div>'+
