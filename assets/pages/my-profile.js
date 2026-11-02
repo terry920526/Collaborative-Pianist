@@ -587,7 +587,7 @@ async function loadRemoteMyProfile() {
       purposes: d.purposes || [],
       services: services,
       travelFee: d.travelFee || 0,
-      travelRadius: d.travelRadius == null ? 15 : d.travelRadius,
+      travelRadius: 50,
       studio: d.studio !== false,
       languages: d.languages || ["English"],
       education: d.education || "",
