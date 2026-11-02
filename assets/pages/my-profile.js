@@ -166,6 +166,29 @@ document.addEventListener("change",function(e){
     };img.src=fr.result;
   };fr.readAsDataURL(e.target.files[0]);
 });
+// Switch between profile editor tabs.
+document.addEventListener("click", function(e) {
+  var tab = e.target.closest("[data-profile-tab]");
+  if (!tab) return;
+
+  var form = tab.closest("form[data-form='profile']");
+  if (!form) return;
+
+  var selected = tab.getAttribute("data-profile-tab");
+
+  form.querySelectorAll("[data-profile-tab]").forEach(function(button) {
+    var isActive = button === tab;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+
+  form.querySelectorAll("[data-profile-panel]").forEach(function(panel) {
+    panel.classList.toggle(
+      "active",
+      panel.getAttribute("data-profile-panel") === selected
+    );
+  });
+});
 ACTIONS["photo-clear"]=function(){PHOTO="";var n=$("#pn").value||"?";$("#photoPrev").innerHTML=avatar({id:"new",name:n,photo:""},"xl")};
 async function geocodeAccompanistLocation(city,state,zip){
   await AUTH_READY;
