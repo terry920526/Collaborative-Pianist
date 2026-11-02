@@ -858,3 +858,56 @@ html[data-theme="dark"] .svc-edit input[type="number"] {
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
 }
+
+/* =========================================
+   ACCOMPANIST PROFILE TABS
+========================================= */
+
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+}
+
+.profile-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 11px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-tab:hover {
+  background: var(--soft);
+  color: var(--text);
+}
+
+.profile-tab.active {
+  background: var(--soft);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.profile-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .profile-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-tab {
+    width: 100%;
+    padding: 12px 8px;
+  }
+}
