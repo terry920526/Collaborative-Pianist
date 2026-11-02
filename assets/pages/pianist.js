@@ -40,7 +40,6 @@ function viewProfile(c){
     '<h2>Good for</h2><div class="tags">'+p.purposes.map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join("")+'</div>'+
     '<h2>Repertoire experience</h2><ul class="rep">'+p.rep.map(function(r){return '<li>'+esc(r)+'</li>'}).join("")+'</ul>'+
     '<h2>Performance videos</h2>'+videos+
-    '<h2>Availability, next 14 days</h2><p class="note" style="margin-bottom:10px">Mor, Aft and Eve show typical open times. Select a day to start a request. The accompanist confirms every booking.</p>'+calendarHTML(p)+
     '<h2>Reviews</h2>'+(cats?'<div class="box" style="margin-bottom:14px">'+cats+'</div>':'')+((q||reviews)?(reviews+q):'<p class="note">No reviews yet. Reviews appear after a musician completes a booking with this accompanist.</p>')+
     '<h2>Report a concern</h2><details class="inline"><summary>Report this profile</summary><form class="form" data-form="report" data-id="'+esc(p.id)+'" novalidate>'+
       '<div class="field"><label for="rr">Reason</label><select id="rr" name="rr">'+opts(REPORT_REASONS,"")+'</select></div>'+
