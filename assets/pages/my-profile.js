@@ -100,19 +100,58 @@ function viewMyProfile(){
     '</div>'+
 
     '</div>'+
+    /* REPERTOIRE TAB */
     '<div class="profile-panel" data-profile-panel="repertoire">'+
-    '<div class="fsec"><h3>Specialization</h3><div class="field"><span class="lab">Instruments</span><div class="checks">'+checks("pi",INSTRUMENTS,p.inst)+'</div></div>'+
-    '<div class="field" style="margin-top:12px"><span class="lab">Genre</span><div class="checks">'+checks("ps",SPECIALTIES,p.specialties)+'</div></div>'+
-    '<div class="field" style="margin-top:12px"><span class="lab">Good for</span><div class="checks">'+checks("pp",PURPOSES,p.purposes)+'</div></div>'+
-    '<div class="field" style="margin-top:12px"><span class="lab">Languages</span><div class="checks">'+checks("pg",LANGUAGES,p.languages)+'</div></div></div>'+
+
+    '<div class="fsec"><h3>Instrument Specialization</h3>'+
+      '<div class="field">'+
+        '<span class="lab">Instruments you accompany</span>'+
+        '<div class="checks">'+checks("pi",INSTRUMENTS,p.inst)+'</div>'+
+      '</div>'+
     '</div>'+
-    '<div class="fsec"><h3>About you</h3><div class="field"><label for="pe">Education</label><input id="pe" name="pe" maxlength="160" value="'+esc(p.education)+'" placeholder="Degrees and institutions"></div>'+
-    '<div class="field" style="margin-top:12px"><label for="pb">Biography</label><textarea id="pb" name="pb" rows="4" maxlength="500" placeholder="Your musical background and specialties">'+esc(p.bio)+'</textarea></div>'+
-    '<div class="field" style="margin-top:12px"><label for="prp">Repertoire you already know <small style="display:inline">(one work per line)</small></label><textarea id="prp" name="prp" rows="5" placeholder="Brahms Cello Sonata No. 1&#10;Schubert Erlkönig">'+esc(p.rep.join("\n"))+'</textarea><small>Musicians search for these by composer and piece.</small></div>'+
-    '<div class="field" style="margin-top:12px"><label for="pv">Performance videos <small style="display:inline">(one per line: Title | link)</small></label><textarea id="pv" name="pv" rows="3" placeholder="Brahms Sonata, recital 2025 | https://www.youtube.com/watch?v=…">'+esc((p.videos||[]).map(function(v){return v.title+" | "+v.url}).join("\n"))+'</textarea></div></div>'+
-    '<div class="fsec"><h3>Weekly availability</h3><p class="hint" style="margin-bottom:8px">Morning is before noon, afternoon is noon to 5 pm, evening is after 5 pm.</p>'+av+'</div>'+
-    '<div class="checks"><label><input type="checkbox" name="phid"'+(p.hidden?' checked':'')+'> Hide my profile from search</label></div>'+
-    '<p class="err" data-err role="alert" hidden></p><div><button class="btn primary lg" type="submit">'+(existing?'Save changes':'Publish profile')+'</button></div></form>';
+
+    '<div class="fsec"><h3>Genre Specialization</h3>'+
+      '<div class="field">'+
+        '<span class="lab">Genres</span>'+
+        '<div class="checks">'+checks("ps",SPECIALTIES,p.specialties)+'</div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="fsec"><h3>Previously Performed Repertoire</h3>'+
+      '<div class="field">'+
+        '<label for="prp">Repertoire you have worked on</label>'+
+        '<textarea id="prp" name="prp" rows="8" placeholder="Brahms Cello Sonata No. 1&#10;Schubert Erlkönig">'+esc(p.rep.join("\n"))+'</textarea>'+
+        '<small>Enter one composition per line. Musicians can use this information to find accompanists familiar with their repertoire.</small>'+
+      '</div>'+
+    '</div>'+
+
+    '</div>'+
+
+    /* ADDITIONAL INFORMATION TAB */
+    '<div class="profile-panel" data-profile-panel="additional">'+
+
+    '<div class="fsec"><h3>Performance Recordings</h3>'+
+      '<div class="field">'+
+        '<label for="pv">Recording links</label>'+
+        '<textarea id="pv" name="pv" rows="6" placeholder="Brahms Sonata, recital 2025 | https://www.youtube.com/watch?v=...">'+esc((p.videos||[]).map(function(v){return v.title+" | "+v.url}).join("\n"))+'</textarea>'+
+        '<small>Enter one recording per line using the format: Title | Link. You can use YouTube or Vimeo links.</small>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="fsec"><h3>Photography Portfolio</h3>'+
+      '<p class="hint">Showcase photographs from your recitals, performances, rehearsals, and chamber music collaborations. Photo uploads will be connected to your Accord portfolio storage in a later step.</p>'+
+      '<div id="portfolioGallery"></div>'+
+    '</div>'+
+
+    '</div>'+
+
+    '<div class="checks" style="margin-top:16px">'+
+      '<label><input type="checkbox" name="phid"'+(p.hidden?' checked':'')+'> Hide my profile from search</label>'+
+    '</div>'+
+
+    '<p class="err" data-err role="alert" hidden></p>'+
+    '<div><button class="btn primary lg" type="submit">'+(existing?'Save changes':'Publish profile')+'</button></div>'+
+    '</form>';
   return {title:"My profile – Accord",html:dashShell("profile",inner)};
 }
 document.addEventListener("change",function(e){
