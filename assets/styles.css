@@ -911,3 +911,12 @@ html[data-theme="dark"] .svc-edit input[type="number"] {
     padding: 12px 8px;
   }
 }
+
+/* Profile editor tabs */
+.profile-panel {
+  display: none;
+}
+
+.profile-panel.active {
+  display: block;
+}
