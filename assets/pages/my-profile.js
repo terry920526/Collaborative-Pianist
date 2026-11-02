@@ -259,20 +259,25 @@ FORMS.profile = async function(f) {
 
   var inst = vals(f, "pi");
   var spec = vals(f, "ps");
-  var purp = vals(f, "pp");
   var langs = vals(f, "pg");
   var rep = lines("prp").slice(0, 30);
 
   var studio = f.elements.studio.checked;
-  var radius = +g("pr") || 0;
+
+// Accord's service radius is fixed at 50 miles.
+  var radius = 50;
+
+// Travel fee is now charged per mile.
   var fee = +g("pt") || 0;
+
+  var existing = myProfile();
 
   if (!name) return fail(f, "Enter the name musicians will see.");
   if (!city) return fail(f, "Enter your base city.");
   if (!state) return fail(f, "Enter your state so musicians can identify the correct city.");
 
-  if (zip && !/^\d{5}$/.test(zip)) {
-    return fail(f, "Enter a 5-digit ZIP code, or leave it blank.");
+  if (!studio && radius <= 0) {
+  return fail(f, "Choose a studio option, or enter how far you will travel.");
   }
 
   if (!Object.keys(services).length) {
@@ -283,13 +288,8 @@ FORMS.profile = async function(f) {
     return fail(f, "Enter an hourly rate between $20 and $500.");
   }
 
-  if (!studio && radius <= 0) {
-    return fail(f, "Choose a studio option, or enter how far you will travel.");
-  }
-
   if (!inst.length) return fail(f, "Choose at least one instrument or voice type.");
   if (!spec.length) return fail(f, "Choose at least one musical specialty.");
-  if (!purp.length) return fail(f, "Choose at least one purpose you are good for.");
   if (!langs.length) return fail(f, "Choose at least one language.");
   if (!rep.length) return fail(f, "Add at least one work you already know.");
 
@@ -331,7 +331,7 @@ FORMS.profile = async function(f) {
     locationErrorMessage = String(locationError && locationError.message || "Location lookup failed");
     console.warn("Accord could not geocode this profile location yet:", locationError);
   }
-  var existing = myProfile();
+
 
   var profile = {
     id: u.id,
