@@ -115,7 +115,37 @@ function viewHome() {
 
 
 /* ---------- Supabase homepage listings ---------- */
+/* Hide accompanist promotions when they are not relevant. */
+function refreshAccompanistPromos() {
+  var u = me();
 
+  var hidePromos = !!(
+    u &&
+    (
+      u.role === "musician" ||
+      (
+        (u.role === "pianist" || u.role === "both") &&
+        u.is_published
+      )
+    )
+  );
+
+  /* Hide the top Become an Accompanist button. */
+  document.querySelectorAll(
+    "[data-accompanist-promo]"
+  ).forEach(function(el) {
+    el.hidden = hidePromos;
+  });
+
+  /* Hide the bottom promotional section. */
+  var bottomPromo = document.getElementById(
+    "homeAccompanistPromo"
+  );
+
+  if (bottomPromo) {
+    bottomPromo.hidden = hidePromos;
+  }
+}
 function mountHome() {
   mountKeys();
   loadHomeAccompanists();
