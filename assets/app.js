@@ -249,14 +249,43 @@ if (!profile) {
     .filter(Boolean)
     .join(" ");
 
-  AUTH_USER = {
-    id: session.user.id,
-    email: session.user.email || "",
-    first_name: metaFirstName,
-    last_name: metaLastName,
-    name: metaName || (session.user.email || "Member").split("@")[0],
-    role: session.user.user_metadata?.role || "musician"
-  };
+AUTH_USER = {
+  id: profile.id,
+  email: session.user.email || "",
+  first_name: firstName,
+  last_name: lastName,
+  name: [firstName, lastName]
+    .filter(Boolean)
+    .join(" "),
+  role: profile.role || "musician",
+  city: profile.city || "",
+  state: profile.state || "",
+  country: profile.country || "",
+  bio: profile.bio || "",
+  is_published: false
+};
+
+/* Check whether this accompanist has a published profile. */
+if (
+  AUTH_USER.role === "pianist" ||
+  AUTH_USER.role === "both"
+) {
+  var pianistResult = await supabaseClient
+    .from("pianist_profiles")
+    .select("is_published")
+    .eq("id", profile.id)
+    .maybeSingle();
+
+  if (pianistResult.error) {
+    console.error(
+      "Could not check accompanist publication status:",
+      pianistResult.error
+    );
+  } else {
+    AUTH_USER.is_published =
+      !!pianistResult.data?.is_published;
+  }
+}
 
 } else {
   var firstName = profile.first_name || "";
@@ -597,6 +626,22 @@ var FOOTER_HTML=
 
 function renderHeader(){
   var u=me();
+  var becomeLink = document.querySelector(
+  '#nav a[data-nav="for"]'
+);
+
+if (becomeLink) {
+  becomeLink.hidden = !!(
+    u &&
+    (
+      u.role === "musician" ||
+      (
+        (u.role === "pianist" || u.role === "both") &&
+        u.is_published
+      )
+    )
+  );
+}
   var sc=$("#savedCount");if(sc)sc.textContent=Object.keys(DB.saved).length;
   var a=$("#auth");if(!a)return;
   if(u){
